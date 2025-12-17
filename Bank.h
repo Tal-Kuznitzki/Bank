@@ -15,6 +15,7 @@ typedef struct Account {
     int balanceILS;
     int balanceUSD;
     bool is_active;
+    int investedAmount;
 
     // Future Parallelism: Add pthread_mutex_t lock; or pthread_rwlock_t lock; here
     // to protect individual account access (e.g., Transfer needs to lock two accounts).
@@ -29,6 +30,7 @@ typedef struct AccountData {
     int balanceILS;
     int balanceUSD;
     bool is_active;
+    int investedAmount;
     struct AccountData* next;
 } AccountData;
 

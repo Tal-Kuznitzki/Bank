@@ -213,14 +213,13 @@ void Bank_OpenAccount(Bank* bank, int id, int pass, int initILS, int initUSD, in
     // Check duplicates
     Account* current = bank->accounts_head;
     while (current) {
-        if (current->id == id) {
+        if (current->id == id && current->is_active) {
             fprintf(bank->logFile, "Error %d: Your transaction failed - account with the same id exists\n", atmID);
             return;
-        }
+        } //TODO : VERIFY ON THE INSTANCE OF ATM1 CLOSE5 ATM2 OPEN5
         current = current->next;
     }
 
-    [cite_start]// Insert Sorted [cite: 231]
     Account* newAcc = (Account*)malloc(sizeof(Account));
     newAcc->id = id;
     newAcc->password = pass;

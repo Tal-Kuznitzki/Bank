@@ -32,7 +32,7 @@ void ATM_Run(ATM* atm) {
         // O: Open
         if (c == 'O') {
             int accId, pass, balILS, balUSD;
-            sscanf(line, "%*s %d %d %d %d", &accId, &pass, &balILS, &balUSD);
+            sscanf(line, "%d %d %d %d %d", &accId, &pass, &balILS, &balUSD);
             Bank_OpenAccount(atm->bankPtr, accId, pass, balILS, balUSD, atm->id);
         }
             // D: Deposit
