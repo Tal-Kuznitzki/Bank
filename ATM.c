@@ -99,7 +99,7 @@ void ATM_Run(ATM* atm) {
             Bank_CloseATM(atm->bankPtr, targetId, atm->id);
         }
             // >: Invest
-        else if (c == '>') {
+        else if (c == 'I') {
             // Example parsing: "> 12345 1234 100 ILS 5"
             int id, pass, amount, time; char curr[4];
             sscanf(line, "%*s %d %d %d %s %d", &id, &pass, &amount, curr, &time);
