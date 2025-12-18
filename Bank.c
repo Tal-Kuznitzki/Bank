@@ -29,7 +29,7 @@ static AccountData* copyAccountListToData(Account* head) {
         newNode->balanceUSD = current->balanceUSD;
         newNode->is_active = current->is_active;
         newNode->next = NULL;
-        newNode-> = current->
+        newNode->investedAmount = current->investedAmount;
 
         if (!newHead) {
             newHead = newNode;
@@ -58,6 +58,8 @@ static Account* copyDataToAccountList(AccountData* head) {
         newNode->balanceUSD = current->balanceUSD;
         newNode->is_active = current->is_active;
         newNode->next = NULL;
+        newNode->investedAmount = current->investedAmount;
+
 
         if (!newHead) {
             newHead = newNode;
@@ -228,6 +230,7 @@ void Bank_OpenAccount(Bank* bank, int id, int pass, int initILS, int initUSD, in
     newAcc->balanceUSD = initUSD;
     newAcc->is_active = true;
     newAcc->next = NULL;
+    newAcc->investedAmount = 0; // maybe let it be another input to the func with default valew 0 ?
 
     if (bank->accounts_head == NULL || bank->accounts_head->id > id) {
         newAcc->next = bank->accounts_head;
@@ -408,6 +411,14 @@ void Bank_Invest(Bank* bank, int id, int pass, int amount, const char* currency,
     }
 
     *bal -= amount;
+    int calc = (strcmp(currency, "ILS") == 0) ? amount : amount*5;
+    for (int i =0 ; i<time ; i++) {
+        int final_amount = 1;
+        final_amount = calc*final_amount;
+    }
+    
+    acc->investedAmount = acc->investedAmount;
+
 
     fprintf(bank->logFile, "%d: Account %d new balance is %d ILS and %d USD after %d %s was invested for %d sec\n",
             atmID, id, acc->balanceILS, acc->balanceUSD, amount, currency, time);
