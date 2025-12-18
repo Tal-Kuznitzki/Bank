@@ -416,8 +416,9 @@ void Bank_Invest(Bank* bank, int id, int pass, int amount, const char* currency,
         int final_amount = 1;
         final_amount = calc*final_amount;
     }
-    
-    acc->investedAmount = acc->investedAmount;
+    usleep(time);
+    *bal += final_amount;
+    acc->investedAmount = final_amount; //maybe we dont need this at allllll
 
 
     fprintf(bank->logFile, "%d: Account %d new balance is %d ILS and %d USD after %d %s was invested for %d sec\n",
