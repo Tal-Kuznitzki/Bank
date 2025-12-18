@@ -29,6 +29,7 @@ static AccountData* copyAccountListToData(Account* head) {
         newNode->balanceUSD = current->balanceUSD;
         newNode->is_active = current->is_active;
         newNode->next = NULL;
+        newNode-> = current->
 
         if (!newHead) {
             newHead = newNode;
