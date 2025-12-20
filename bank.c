@@ -5,6 +5,45 @@
 
 Bank g_bank;
 
+
+// ... existing code ...
+
+// This function corresponds to the "Status Print Thread"
+void print_bank_status() {
+    // 1. Move cursor to top-left and clear screen [cite: 250]
+    // Note: In single-threaded debug, this might wipe your history.
+    // You might want to comment out the \033 lines while debugging Phase 1.
+    printf("\033[2J");
+    printf("\033[1;1H");
+
+    printf("Current Bank Status\n");
+
+    Account* curr = g_bank.current_state.account_list;
+    while (curr) {
+        if (curr->is_active) {
+            // [cite: 243] Format: Account <id>: Balance <ILS> ILS <USD> USD, Account Password - <pass>
+            printf("Account %d: Balance %d ILS %d USD, Account Password - %04d\n",
+                   curr->id,
+                   curr->balance_ils,
+                   curr->balance_usd,
+                   curr->password);
+        }
+        curr = curr->next;
+    }
+
+}
+
+// This function corresponds to the "Commission Thread" logic
+// Call this function to simulate checking if a commission is due
+void check_commission_execution() {
+    // In Phase 2 (Threads), this will be a loop: while(1) { sleep(30ms); bank_commission(); }
+
+    // For Phase 1, we just call the logic directly:
+    bank_commission();
+}
+
+
+
 void init_bank() {
     g_bank.current_state.account_list = NULL;
     g_bank.current_state.bank_ils_profit = 0;
@@ -42,9 +81,19 @@ Account* find_account(int id) {
 }
 
 void add_account(Account* acc) {
-    // Add to head
-    acc->next = g_bank.current_state.account_list;
-    g_bank.current_state.account_list = acc;
+    if (g_bank.current_state.account_list == NULL || g_bank.current_state.account_list->id > acc->id) {
+        acc->next = g_bank.current_state.account_list;
+        g_bank.current_state.account_list = acc;
+    } else {
+        Account* temp =  g_bank.current_state.account_list ;
+        while (temp->next != NULL && temp->next->id < acc->id) {
+            temp = temp->next;
+        }
+        acc->next = temp->next;
+        temp->next = acc;
+    }
+
+
 }
 
 void delete_account(int id) {
@@ -72,14 +121,14 @@ void take_snapshot() {
     if (g_bank.history_count >= MAX_HISTORY) {
         // Remove oldest? Or stop saving? 
         // For this exercise, usually we shift.
-        free_account_list(g_bank.history[0].account_list);
-        for(int i=0; i < MAX_HISTORY - 1; i++) {
+        free_account_list(g_bank.history[g_bank.history_count%MAX_HISTORY].account_list);
+/*        for(int i=0; i < MAX_HISTORY - 1; i++) {
             g_bank.history[i] = g_bank.history[i+1];
         }
-        g_bank.history_count--;
+        g_bank.history_count--;*/
     }
     
-    int idx = g_bank.history_count;
+    int idx = g_bank.history_count%MAX_HISTORY;
     g_bank.history[idx].account_list = copy_account_list(g_bank.current_state.account_list);
     g_bank.history[idx].bank_ils_profit = g_bank.current_state.bank_ils_profit;
     g_bank.history[idx].bank_usd_profit = g_bank.current_state.bank_usd_profit;
@@ -91,7 +140,10 @@ int rollback_bank(int iterations) {
     
     // Target index
     int target_idx = g_bank.history_count - iterations;
-    
+
+    g_bank.history[g_bank.history_count%MAX_HISTORY] = g_bank.current_state;
+    g_bank.history_count++;
+
     // Free current
     free_account_list(g_bank.current_state.account_list);
     
@@ -102,11 +154,10 @@ int rollback_bank(int iterations) {
     
     // In a real rollback, do we delete the "future" history? 
     // Usually yes.
-    for (int i = target_idx + 1; i < g_bank.history_count; i++) {
+/*    for (int i = target_idx + 1; i < g_bank.history_count; i++) {
         free_account_list(g_bank.history[i].account_list);
-    }
-    g_bank.history_count = target_idx; // Reset history pointer
-    
+    }*/
+
     return 0;
 }
 

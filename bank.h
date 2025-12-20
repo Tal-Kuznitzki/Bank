@@ -3,8 +3,11 @@
 
 #include "account.h"
 #include <stdio.h>
+#include <pthread.h>
 
 #define MAX_HISTORY 120
+#define COMMISSION_INTERVAL 0.03
+#define STATUS_PRINT_INTERVAL 0.01
 
 typedef struct BankState {
     Account* account_list;
@@ -40,5 +43,6 @@ void take_snapshot();
 int rollback_bank(int iterations); // Returns 0 on success, -1 error
 void bank_commission(); // Logic for taking commission
 void log_msg(const char* msg);
-
+void print_bank_status();
+void check_commission_execution();
 #endif

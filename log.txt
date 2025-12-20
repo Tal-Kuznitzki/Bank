@@ -1,0 +1,19 @@
+1: New account id is 1001 with password 1234 and initial balance 1000 ILS and 5000 USD
+1: New account id is 2002 with password 5678 and initial balance 500 ILS and 0 USD
+1: Account 1001 new balance is 1080 ILS and 4900 USD after 100 ILS was deposited
+1: Account 1001 new balance is 1080 ILS and 4850 USD after 50 USD was withdrawn
+1: Account 1001 balance is 1080 ILS and 4850 USD
+1: Transfer 200 ILS from account 1001 to account 2002 new account balance is 880 ILS and 4850 USD new target account balance is 700 ILS and 0 USD
+1: Account 1001 new balance is 780 ILS and 4870 USD after 100 ILS was exchanged
+Bank: commissions of 2 % were charged, bank gained 20 ILS and 100 USD from account 1001
+Bank: commissions of 2 % were charged, bank gained 14 ILS and 0 USD from account 2002
+Error 1: Your transaction failed - password for account id 1001 is incorrect
+Error 1: Your transaction failed - account id 1001 balance is 1690 ILS and 4870 USD is lower than 90000 ILS
+Bank: commissions of 3 % were charged, bank gained 50 ILS and 146 USD from account 1001
+Error 1: Your transaction failed - account with the same id exists
+1: Account 1001 new balance is 1650 ILS and 4724 USD after 10 ILS was deposited
+1: Account 1001 new balance is 1670 ILS and 4724 USD after 20 ILS was deposited
+1: Currently on a scheduled break. Service will resume within 200 ms.
+Bank: commissions of 3 % were charged, bank gained 20 ILS and 0 USD from account 2002
+1: Account 2002 is now closed. Balance was 666 ILS and 0 USD
+Bank: commissions of 5 % were charged, bank gained 83 ILS and 236 USD from account 1001

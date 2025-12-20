@@ -5,7 +5,23 @@
 #include <string.h>
 #include <time.h>
 
+
 #define CMD_LEN 256
+
+
+// ... existing includes ...
+
+void* atm_thread_routine(void* args) {
+    ATMThreadArgs* atm_args = (ATMThreadArgs*)args;
+
+    // Call the logic you already wrote
+    process_atm_file(atm_args->atm_id, atm_args->filepath);
+
+    // Free the argument struct allocated in main
+    free(atm_args);
+
+    return NULL;
+}
 
 // Helper to remove newlines
 void trim_newline(char* str) {
@@ -206,14 +222,15 @@ void process_line(int atm_id, char* line) {
                            // but strict logs are required. I will assume a basic debug log or none if not specified.
                            // The prompt says "do not skip logic".
                            // Let's assume the money disappears for now.
-                      int calc = 1;
+                      double calc = 1;
+                      double final_amount = 0;
                       for (int i =0 ; i<(time_ms/10) ; i++) {
                           
                           calc = 1.03*calc;
                       }
                       final_amount = calc*amount;
                       acc->i_start_time = time(NULL);
-                      isILS ? acc->balance_ils += final_amount : acc->balance_usd += final_amount;
+                      if(isILS) acc->balance_ils += final_amount ; else acc->balance_usd += final_amount;
                       acc->invested_amount = final_amount; 
                  }
                 }
@@ -240,7 +257,7 @@ void process_line(int atm_id, char* line) {
                 
                 sprintf(logBuffer, "%d: Currently on a scheduled break. Service will resume within %d ms.", atm_id, sleep_time);
                 log_msg(logBuffer);
-                usleep(sleep_time);
+                sleep(sleep_time/1000);
             }
             break;
         }
@@ -264,8 +281,9 @@ void process_atm_file(int atm_id, const char* filepath) {
         // Take snapshot before every operation to simulate state history
         // In the threaded version, this happens every 500ms. Here, we do it per op to test R logic.
         take_snapshot();
-        
+
         process_line(atm_id, line);
+
     }
     fclose(f);
 }
