@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <time.h>
 
 #define CMD_LEN 256
 
@@ -206,11 +207,12 @@ void process_line(int atm_id, char* line) {
                            // but strict logs are required. I will assume a basic debug log or none if not specified.
                            // The prompt says "do not skip logic".
                            // Let's assume the money disappears for now.
-                      
-                      for (int i =0 ; i<time_ms ; i++) {
-                          int final_amount = 1;
-                          final_amount = amount*final_amount;
+                      int calc = 1;
+                      for (int i =0 ; i<(time_ms/10) ; i++) {
+                          
+                          calc = 1.03*calc;
                       }
+                      final_amount = calc*amount;
                       acc->i_start_time = time(NULL);
                       isILS ? acc->balance_ils += final_amount : acc->balance_usd += final_amount;
                       acc->invested_amount = final_amount; 

@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <time.h>
 
 typedef struct Account {
     int id;
@@ -14,6 +15,7 @@ typedef struct Account {
     // Investment logic
     int invested_amount; // In simulated cents or base units? Spec says int.
     int investment_duration; // ms
+    time_t i_start_time;
     
     struct Account* next; // Linked list pointer
 } Account;
