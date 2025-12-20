@@ -13,6 +13,7 @@ Account* create_account(int id, int password, int init_ils, int init_usd) {
     new_acc->invested_amount = 0;
     new_acc->investment_duration = 0;
     new_acc->next = NULL;
+    new_acc->i_start_time = NULL;
     return new_acc;
 }
 
