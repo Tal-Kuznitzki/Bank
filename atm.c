@@ -206,8 +206,16 @@ void process_line(int atm_id, char* line) {
                            // but strict logs are required. I will assume a basic debug log or none if not specified.
                            // The prompt says "do not skip logic".
                            // Let's assume the money disappears for now.
+                      
+                      for (int i =0 ; i<time_ms ; i++) {
+                          int final_amount = 1;
+                          final_amount = amount*final_amount;
                       }
+                      acc->i_start_time = time(NULL);
+                      isILS ? acc->balance_ils += final_amount : acc->balance_usd += final_amount;
+                      acc->invested_amount = final_amount; 
                  }
+                }
                  // Not logging anything because no specific log string was provided in the translation for Investment Success.
              }
              break;
@@ -218,7 +226,7 @@ void process_line(int atm_id, char* line) {
                 if (rollback_bank(iterations) == 0) {
                     sprintf(logBuffer, "%d: Rollback to %d bank iterations ago was completed successfully", atm_id, iterations);
                 } else {
-                    sprintf(logBuffer, "Error %d: Rollback failed (not enough history)", atm_id);
+                    sprintf(logBuffer, "Error %d: Rollback failed (not enough history)", atm_id); //delete later because it is not defined
                 }
                 log_msg(logBuffer);
             }
@@ -228,8 +236,10 @@ void process_line(int atm_id, char* line) {
             // Just parse and log, no actual sleep in single-threaded
             int sleep_time;
             if (sscanf(line + 1, "%d", &sleep_time) == 1) {
+                
                 sprintf(logBuffer, "%d: Currently on a scheduled break. Service will resume within %d ms.", atm_id, sleep_time);
                 log_msg(logBuffer);
+                usleep(sleep_time);
             }
             break;
         }
