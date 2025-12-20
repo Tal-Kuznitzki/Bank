@@ -1,41 +1,25 @@
-#include <stdio.h>
+#include "bank.h"
+#include "atm.h"
 #include <stdlib.h>
-#include <time.h>
-#include "Bank.h"
-#include "ATM.h"
 
 int main(int argc, char* argv[]) {
-    // Usage: ./bank <VIP count> <file1> [file2...]
+    // Expected: ./bank <VIP_threads> <ATM1> <ATM2> ...
     if (argc < 3) {
         fprintf(stderr, "Bank error: illegal arguments\n");
         return 1;
     }
 
-    srand(time(NULL)); // Seed for random commissions
+    // We ignore VIP_threads count for this single-threaded phase
+    // int vip_threads = atoi(argv[1]);
 
-    // 1. Init Bank
-    Bank centralBank;
-    Bank_Init(&centralBank);
+    init_bank();
 
-    // 2. Init ATM (Use argv[2] as input file for ATM #1)
-    ATM atm1;
-    ATM_Init(&atm1, 1, argv[2], &centralBank);
+    // Iterate sequentially through ATM files
+    for (int i = 2; i < argc; i++) {
+        int atm_id = i - 1; // ATM IDs match the file sequence order (1, 2, 3...)
+        process_atm_file(atm_id, argv[i]);
+    }
 
-    // 3. Run (Sequential for now)
-    // In future parallel version: pthread_create here
-    ATM_Run(&atm1);
-
-    // In future parallel version: pthread_join here
-
-    // 4. Cleanup
-    Bank_Destroy(&centralBank);
-
+    close_bank();
     return 0;
 }
-/**
- * TODO :
- * INPUT PARSER FOR MULTIPLE ATMS
- * INVESTMENT
- * CITE REMOVAL
- *
- */
