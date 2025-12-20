@@ -1,20 +1,23 @@
 CC = gcc
-CFLAGS = -std=c99 -g -Wall -Werror -pedantic-errors -DNDEBUG -pthread
-TARGET = bank
+CFLAGS = -std=c99 -g -Wall -Werror -pedantic-errors
+LDFLAGS =
 
-all: $(TARGET)
+OBJS = main.o bank.o account.o atm.o
 
-$(TARGET): main.o ATM.o Bank.o
-	$(CC) $(CFLAGS) $^ -o $@
+bank: $(OBJS)
+	$(CC) $(CFLAGS) -o bank $(OBJS) $(LDFLAGS)
 
-main.o: main.c ATM.h Bank.h
+main.o: main.c bank.h atm.h
 	$(CC) $(CFLAGS) -c main.c
 
-ATM.o: ATM.c ATM.h Bank.h
-	$(CC) $(CFLAGS) -c ATM.c
+bank.o: bank.c bank.h account.h
+	$(CC) $(CFLAGS) -c bank.c
 
-Bank.o: Bank.c Bank.h
-	$(CC) $(CFLAGS) -c Bank.c
+account.o: account.c account.h
+	$(CC) $(CFLAGS) -c account.c
+
+atm.o: atm.c atm.h bank.h
+	$(CC) $(CFLAGS) -c atm.c
 
 clean:
-	rm -f *.o $(TARGET) log.txt
+	rm -f bank *.o log.txt
