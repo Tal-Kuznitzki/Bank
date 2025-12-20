@@ -1,6 +1,5 @@
 #include "bank.h"
 #include "atm.h"
-
 #include <stdlib.h>
 #include <pthread.h>
 
@@ -38,6 +37,8 @@ int main(int argc, char* argv[]) {
         return -1;
     }
 
+    //rwlock_init()
+
     pthread_t* atm_threads = malloc(sizeof(pthread_t) * num_atms);
    // int num_VIP_threads=atoi(argv[1]);
 
@@ -46,11 +47,16 @@ int main(int argc, char* argv[]) {
 
     init_bank();
     //#threads = #files + 2 (one for printing times) (one for investment)
+
+
+/*
     pthread_t printer_tid;
+
     if (pthread_create(&printer_tid, NULL, status_printer_thread, NULL) != 0) {
         perror("Bank error: pthread_create failed");
         return 1;
     }
+
 
     pthread_t commission_tid;
     if (pthread_create(&commission_tid, NULL, commission_thread, NULL) != 0) {
@@ -58,6 +64,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
+*/
 
 
     // Iterate sequentially through ATM files

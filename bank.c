@@ -17,7 +17,7 @@ void print_bank_status() {
     printf("\033[1;1H");
 
     printf("Current Bank Status\n");
-
+    read_lock(&g_bank.list_lock);
     Account* curr = g_bank.current_state.account_list;
     while (curr) {
         if (curr->is_active) {
@@ -30,6 +30,7 @@ void print_bank_status() {
         }
         curr = curr->next;
     }
+    read_unlock(&g_bank.list_lock);
 
 }
 
@@ -50,23 +51,55 @@ void init_bank() {
     g_bank.current_state.bank_usd_profit = 0;
     g_bank.history_count = 0;
     g_bank.log_file = fopen("log.txt", "w");
+
+
+    rwlock_init(&g_bank.list_lock);
+    rwlock_init(&g_bank.history_list_lock);
+
+
+
+    if (pthread_mutex_init(&g_bank.profits_lock, NULL) != 0) {
+        perror("Bank error: mutex init failed");
+        exit(1);
+    }
+    if (pthread_mutex_init(&g_bank.log_lock, NULL) != 0) {
+        perror("Bank error: mutex init failed");
+        exit(1);
+    }
+
 }
 
 void close_bank() {
+
+    write_lock(&g_bank.list_lock);
     free_account_list(g_bank.current_state.account_list);
+    write_unlock(&g_bank.list_lock);
+
     for (int i = 0; i < g_bank.history_count; i++) {
+        write_lock(&g_bank.history_list_lock);
         free_account_list(g_bank.history[i].account_list);
+        write_unlock(&g_bank.history_list_lock);
     }
     if (g_bank.log_file) fclose(g_bank.log_file);
+    //loglock destroy
+    pthread_mutex_destroy(&g_bank.log_lock);
+    pthread_mutex_destroy(&g_bank.profits_lock);
+    rwlock_destroy(&g_bank.list_lock);
+    rwlock_destroy(&g_bank.history_list_lock);
 }
 
 void log_msg(const char* msg) {
+    //lock - there can be only one writing
+    pthread_mutex_lock(&g_bank.log_lock);
     if (g_bank.log_file) {
         fprintf(g_bank.log_file, "%s\n", msg);
         fflush(g_bank.log_file);
     }
     // Also print to stdout for debugging this phase
     printf("%s\n", msg);
+
+    // unlock - allow the rest to log
+    pthread_mutex_unlock(&g_bank.log_lock);
 }
 
 Account* find_account(int id) {
@@ -116,6 +149,8 @@ void delete_account(int id) {
 }
 
 void take_snapshot() {
+
+    write_lock(&g_bank.history_list_lock);
     // Shift history if full? The spec says max 100-120. 
     // We will just fill up to MAX. Real implementation might need circular buffer.
     if (g_bank.history_count >= MAX_HISTORY) {
@@ -129,18 +164,31 @@ void take_snapshot() {
     }
     
     int idx = g_bank.history_count%MAX_HISTORY;
+
+
     g_bank.history[idx].account_list = copy_account_list(g_bank.current_state.account_list);
+
+    pthread_mutex_lock(&g_bank.profits_lock);
     g_bank.history[idx].bank_ils_profit = g_bank.current_state.bank_ils_profit;
     g_bank.history[idx].bank_usd_profit = g_bank.current_state.bank_usd_profit;
+    pthread_mutex_unlock(&g_bank.profits_lock);
+
     g_bank.history_count++;
+
+
+    write_unlock(&g_bank.history_list_lock);
 }
 
 int rollback_bank(int iterations) {
+
+    write_lock(&g_bank.history_list_lock);
     if (g_bank.history_count < iterations) return -1;
+
     
     // Target index
     int target_idx = g_bank.history_count - iterations;
 
+    write_lock(&g_bank.list_lock);
     g_bank.history[g_bank.history_count%MAX_HISTORY] = g_bank.current_state;
     g_bank.history_count++;
 
@@ -149,14 +197,19 @@ int rollback_bank(int iterations) {
     
     // Restore state (Deep copy from history, so history remains valid)
     g_bank.current_state.account_list = copy_account_list(g_bank.history[target_idx].account_list);
+
+    pthread_mutex_lock(&g_bank.profits_lock);
     g_bank.current_state.bank_ils_profit = g_bank.history[target_idx].bank_ils_profit;
     g_bank.current_state.bank_usd_profit = g_bank.history[target_idx].bank_usd_profit;
+    pthread_mutex_unlock(&g_bank.profits_lock);
     
     // In a real rollback, do we delete the "future" history? 
     // Usually yes.
 /*    for (int i = target_idx + 1; i < g_bank.history_count; i++) {
         free_account_list(g_bank.history[i].account_list);
     }*/
+    write_unlock(&g_bank.list_lock);
+    write_unlock(&g_bank.history_list_lock);
 
     return 0;
 }
@@ -165,18 +218,27 @@ void bank_commission() {
     // Logic: take 1-5% from all accounts
     int pct = (rand() % 5) + 1; // 1 to 5
     double factor = (double)pct / 100.0;
-    
+
+    write_lock(&g_bank.list_lock);
     Account* curr = g_bank.current_state.account_list;
+
+
     while(curr) {
         if(curr->is_active) {
             int comm_ils = (int)(curr->balance_ils * factor);
             int comm_usd = (int)(curr->balance_usd * factor);
-            
+
+
             curr->balance_ils -= comm_ils;
             curr->balance_usd -= comm_usd;
-            
+
+
+
+
+            pthread_mutex_lock(&g_bank.profits_lock);
             g_bank.current_state.bank_ils_profit += comm_ils;
             g_bank.current_state.bank_usd_profit += comm_usd;
+            pthread_mutex_unlock(&g_bank.profits_lock);
             
             char buf[256];
             sprintf(buf, "Bank: commissions of %d %% were charged, bank gained %d ILS and %d USD from account %d", 
@@ -185,4 +247,5 @@ void bank_commission() {
         }
         curr = curr->next;
     }
+    write_unlock(&g_bank.list_lock);
 }

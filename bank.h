@@ -4,6 +4,7 @@
 #include "account.h"
 #include <stdio.h>
 #include <pthread.h>
+#include "rwlock.h"
 
 #define MAX_HISTORY 120
 #define COMMISSION_INTERVAL 0.03
@@ -24,6 +25,10 @@ typedef struct Bank {
     int history_count;
     
     // Logging file
+    pthread_mutex_t log_lock;
+    pthread_mutex_t profits_lock;
+    ReadWriteLock history_list_lock;
+    ReadWriteLock list_lock;
     FILE* log_file;
 } Bank;
 
