@@ -189,7 +189,7 @@ void process_line(int atm_id, char* line) {
              }
              break;
         }
-        case '>': { // Investment: > <acc> <pass> <amount> <curr> <time_ms>
+        case 'I': { // Investment: > <acc> <pass> <amount> <curr> <time_ms>
              if (sscanf(line + 2, "%d %d %d %s %d", &acc_id, &password, &amount, currency, &time_ms) == 5) {
                  // Implementation logic:
                  // 1. Find account, check password, check funds.
