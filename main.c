@@ -2,28 +2,37 @@
 #include "atm.h"
 #include <stdlib.h>
 #include <pthread.h>
+#include <time.h>
+#define _POSIX_C_SOURCE 199309L
 
 
 
 void* status_printer_thread(void* arg) {
+    struct timespec ts;
+    ts.tv_sec = STATUS_PRINT_INTERVAL /1000 ;
+    ts.tv_nsec = (STATUS_PRINT_INTERVAL*1000*1000)
+
     while (1) {
         print_bank_status();
         // Sleep for 10ms
-        sleep(STATUS_PRINT_INTERVAL);
+        double  print_sts_slp_tme =  (STATUS_PRINT_INTERVAL*1000)*1000 ;
+        nanosleep(&ts,NULL);
     }
     return NULL;
 }
 void* commission_thread(void* arg) {
     while(1) {
         bank_commission(); // You implemented this in bank.c
-        sleep(COMMISSION_INTERVAL); // 30ms
+        double  commission_slp_tme =  COMMISSION_INTERVAL/1000 ;
+        sleep(commission_slp_tme); // 30ms
     }
     return NULL;
 }
 void* snapshot_thread(void* arg) {
     while(1) {
         take_snapshot();
-        sleep(STATUS_PRINT_INTERVAL); // 30ms
+        double  snpsht_slp_tme =  STATUS_PRINT_INTERVAL/1000 ;
+        sleep(snpsht_slp_tme); // 30ms
     }
     return NULL;
 }
@@ -69,11 +78,14 @@ int main(int argc, char* argv[]) {
         perror("Bank error: pthread_create failed");
         return 1;
     }
-    pthread_t snapshot_tid;
+
+
+
+/*    pthread_t snapshot_tid;
     if (pthread_create(&snapshot_tid, NULL, snapshot_thread, NULL) != 0) {
         perror("Bank error: pthread_create failed");
         return 1;
-    }
+    }*/
 
 
 
@@ -99,14 +111,14 @@ int main(int argc, char* argv[]) {
 
     pthread_cancel(printer_tid);
     pthread_cancel(commission_tid);
-    pthread_cancel(snapshot_tid); // Note: I fixed a bug in your variable name here, see below
+    //pthread_cancel(snapshot_tid);
 
     // 2. Wait for them to actually stop
     // If we don't wait, we might destroy the mutexes while they are
     // still in the middle of shutting down.
     pthread_join(printer_tid, NULL);
     pthread_join(commission_tid, NULL);
-    pthread_join(snapshot_tid, NULL);
+    //pthread_join(snapshot_tid, NULL);
 
     free(atm_threads);
 

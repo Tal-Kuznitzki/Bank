@@ -12,9 +12,10 @@ Bank g_bank;
 void print_bank_status() {
     // 1. Move cursor to top-left and clear screen [cite: 250]
     // Note: In single-threaded debug, this might wipe your history.
-    // You might want to comment out the \033 lines while debugging Phase 1.
-    printf("\033[2J");
-    printf("\033[1;1H");
+
+
+   printf("\033[2J");
+   printf("\033[1;1H");
 
     printf("Current Bank Status\n");
     read_lock(&g_bank.list_lock);
@@ -141,20 +142,18 @@ void delete_account(int id) {
 
 void take_snapshot() {
     write_lock(&g_bank.history_list_lock);
-    // Shift history if full? The spec says max 100-120. 
-    // We will just fill up to MAX. Real implementation might need circular buffer.
     if (g_bank.history_count >= MAX_HISTORY) {
-        // Remove oldest? Or stop saving? 
-        // For this exercise, usually we shift.
-        free_account_list(g_bank.history[g_bank.history_count%MAX_HISTORY].account_list);
-/*        for(int i=0; i < MAX_HISTORY - 1; i++) {
+
+ // oldway - free_account_list(g_bank.history[g_bank.history_count%MAX_HISTORY].account_list);
+      for(int i=0; i < MAX_HISTORY - 1; i++) {
             g_bank.history[i] = g_bank.history[i+1];
         }
-        g_bank.history_count--;*/
+        g_bank.history_count--;
     }
     
-    int idx = g_bank.history_count%MAX_HISTORY;
+    int idx = g_bank.history_count; // was %MAX_HISTORY . ...
 
+    read_lock(&g_bank.list_lock);
 
     g_bank.history[idx].account_list = copy_account_list(g_bank.current_state.account_list);
 
@@ -162,6 +161,8 @@ void take_snapshot() {
     g_bank.history[idx].bank_ils_profit = g_bank.current_state.bank_ils_profit;
     g_bank.history[idx].bank_usd_profit = g_bank.current_state.bank_usd_profit;
     pthread_mutex_unlock(&g_bank.profits_lock);
+
+    read_unlock(&g_bank.list_lock);
 
     g_bank.history_count++;
     write_unlock(&g_bank.history_list_lock);

@@ -6,9 +6,9 @@
 #include <pthread.h>
 #include "rwlock.h"
 
-#define MAX_HISTORY 120
-#define COMMISSION_INTERVAL 0.03
-#define STATUS_PRINT_INTERVAL 0.01
+#define MAX_HISTORY 100
+#define COMMISSION_INTERVAL 30 //in ms
+#define STATUS_PRINT_INTERVAL 10 //in ms
 
 typedef struct BankState {
     Account* account_list;
