@@ -15,8 +15,15 @@ void* status_printer_thread(void* arg) {
 }
 void* commission_thread(void* arg) {
     while(1) {
-        check_commission_execution(); // You implemented this in bank.c
+        bank_commission(); // You implemented this in bank.c
         sleep(COMMISSION_INTERVAL); // 30ms
+    }
+    return NULL;
+}
+void* snapshot_thread(void* arg) {
+    while(1) {
+        take_snapshot();
+        sleep(STATUS_PRINT_INTERVAL); // 30ms
     }
     return NULL;
 }
@@ -49,7 +56,7 @@ int main(int argc, char* argv[]) {
     //#threads = #files + 2 (one for printing times) (one for investment)
 
 
-/*
+
     pthread_t printer_tid;
 
     if (pthread_create(&printer_tid, NULL, status_printer_thread, NULL) != 0) {
@@ -57,14 +64,18 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-
     pthread_t commission_tid;
     if (pthread_create(&commission_tid, NULL, commission_thread, NULL) != 0) {
         perror("Bank error: pthread_create failed");
         return 1;
     }
+    pthread_t snapshot_tid;
+    if (pthread_create(&snapshot_tid, NULL, snapshot_thread, NULL) != 0) {
+        perror("Bank error: pthread_create failed");
+        return 1;
+    }
 
-*/
+
 
 
     // Iterate sequentially through ATM files
@@ -86,10 +97,16 @@ int main(int argc, char* argv[]) {
         pthread_join(atm_threads[i], NULL);
     }
 
-    // Once ATMs are done, we can clean up.
-    // In a real program, we would cancel the background threads here.
-    // pthread_cancel(printer_tid);
-    // pthread_cancel(commission_tid);
+    pthread_cancel(printer_tid);
+    pthread_cancel(commission_tid);
+    pthread_cancel(snapshot_tid); // Note: I fixed a bug in your variable name here, see below
+
+    // 2. Wait for them to actually stop
+    // If we don't wait, we might destroy the mutexes while they are
+    // still in the middle of shutting down.
+    pthread_join(printer_tid, NULL);
+    pthread_join(commission_tid, NULL);
+    pthread_join(snapshot_tid, NULL);
 
     free(atm_threads);
 

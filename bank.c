@@ -19,7 +19,7 @@ void print_bank_status() {
     printf("Current Bank Status\n");
     read_lock(&g_bank.list_lock);
     Account* curr = g_bank.current_state.account_list;
-    while (curr) {
+    while (curr !=NULL) {
         if (curr->is_active) {
             // [cite: 243] Format: Account <id>: Balance <ILS> ILS <USD> USD, Account Password - <pass>
             printf("Account %d: Balance %d ILS %d USD, Account Password - %04d\n",
@@ -36,15 +36,6 @@ void print_bank_status() {
 
 // This function corresponds to the "Commission Thread" logic
 // Call this function to simulate checking if a commission is due
-void check_commission_execution() {
-    // In Phase 2 (Threads), this will be a loop: while(1) { sleep(30ms); bank_commission(); }
-
-    // For Phase 1, we just call the logic directly:
-    bank_commission();
-}
-
-
-
 void init_bank() {
     g_bank.current_state.account_list = NULL;
     g_bank.current_state.bank_ils_profit = 0;
@@ -96,7 +87,7 @@ void log_msg(const char* msg) {
         fflush(g_bank.log_file);
     }
     // Also print to stdout for debugging this phase
-    printf("%s\n", msg);
+ //   printf("%s\n", msg);
 
     // unlock - allow the rest to log
     pthread_mutex_unlock(&g_bank.log_lock);
@@ -149,7 +140,6 @@ void delete_account(int id) {
 }
 
 void take_snapshot() {
-
     write_lock(&g_bank.history_list_lock);
     // Shift history if full? The spec says max 100-120. 
     // We will just fill up to MAX. Real implementation might need circular buffer.
@@ -174,8 +164,6 @@ void take_snapshot() {
     pthread_mutex_unlock(&g_bank.profits_lock);
 
     g_bank.history_count++;
-
-
     write_unlock(&g_bank.history_list_lock);
 }
 
@@ -223,7 +211,7 @@ void bank_commission() {
     Account* curr = g_bank.current_state.account_list;
 
 
-    while(curr) {
+    while(curr != NULL ) {
         if(curr->is_active) {
             int comm_ils = (int)(curr->balance_ils * factor);
             int comm_usd = (int)(curr->balance_usd * factor);

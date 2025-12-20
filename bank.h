@@ -49,5 +49,4 @@ int rollback_bank(int iterations); // Returns 0 on success, -1 error
 void bank_commission(); // Logic for taking commission
 void log_msg(const char* msg);
 void print_bank_status();
-void check_commission_execution();
 #endif
