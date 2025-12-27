@@ -43,9 +43,7 @@ void process_line(int atm_id, char* line) {
     
     cmdType = line[0];
     
-    // Note: To support "VIP=X" or "PERSISTENT" at the end, standard sscanf might fail 
-    // if we don't handle the extra string. For Phase 1, we will parse the main args.
-    
+    // Note: To support "VIP=X" or "PERSISTENT" at the end, standard sscanf might fail
     switch (cmdType) {
         case 'O': { // Open: O <acc> <pass> <ils> <usd>
             if (sscanf(line + 2, "%d %d %d %d", &acc_id, &password, &init_ils, &init_usd) == 4) {

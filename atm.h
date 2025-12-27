@@ -10,6 +10,8 @@ typedef struct {
     char* filepath;
 } ATMThreadArgs;
 
+
+
 // Add the thread routine prototype
 void* atm_thread_routine(void* args);
 void process_atm_file(int atm_id, const char* filepath);

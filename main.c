@@ -49,15 +49,28 @@ int main(int argc, char* argv[]) {
         printf("errorrrrr");
         return -1;
     }
-
-    //rwlock_init()
     pthread_t* atm_threads = malloc(sizeof(pthread_t) * num_atms);
-   // int num_VIP_threads=atoi(argv[1]);
-    // We ignore VIP_threads count for this single-threaded phase
-    // int vip_threads = atoi(argv[1]);
+    int num_VIP_threads=atoi(argv[1]);
     init_bank();
     //#threads = #files + 2 (one for printing times) (one for investment)
     pthread_t printer_tid;
+
+    if (num_VIP_threads!=NULL &&  num_VIP_threads>0){
+        pthread_t* vip_threads = malloc(sizeof(pthread_t) * num_VIP_threads);
+        for (int i = 0; i < num_VIP_threads ; ++i) {
+            ATMThreadArgs* vip_args = malloc(sizeof(ATMThreadArgs));
+            vip_args->atm_id = i + 1;
+            pthread_create(&vip_threads[i], NULL, VIP_thread, NULL) != 0);
+        }
+        @@@
+        for (int i = 0; i < num_atms; i++) {
+            ATMThreadArgs* args = malloc(sizeof(ATMThreadArgs));
+            args->atm_id = i + 1; // ATMs are 1-based usually
+            args->filepath = argv[i + 2]; // Skip ./bank and VIP_count
+        }
+        @#@@
+
+    }
 
     if (pthread_create(&printer_tid, NULL, status_printer_thread, NULL) != 0) {
         perror("Bank error: pthread_create failed");
