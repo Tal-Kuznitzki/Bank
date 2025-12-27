@@ -5,10 +5,13 @@
 #include <stdio.h>
 #include <pthread.h>
 #include "rwlock.h"
+#include <stdbool.h>
 
 #define MAX_HISTORY 100
 #define COMMISSION_INTERVAL 30 //in ms
 #define STATUS_PRINT_INTERVAL 10 //in ms
+
+extern volatile int system_running;
 
 typedef struct BankState {
     Account* account_list;

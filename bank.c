@@ -3,6 +3,10 @@
 #include <string.h>
 #include <time.h>
 
+
+
+volatile int system_running = 1;
+
 Bank g_bank;
 
 
@@ -38,6 +42,7 @@ void print_bank_status() {
 // This function corresponds to the "Commission Thread" logic
 // Call this function to simulate checking if a commission is due
 void init_bank() {
+    system_running=1;
     g_bank.current_state.account_list = NULL;
     g_bank.current_state.bank_ils_profit = 0;
     g_bank.current_state.bank_usd_profit = 0;
@@ -78,7 +83,7 @@ void close_bank() {
     pthread_mutex_destroy(&g_bank.profits_lock);
     rwlock_destroy(&g_bank.list_lock);
     rwlock_destroy(&g_bank.history_list_lock);
-}
+    }
 
 void log_msg(const char* msg) {
     //lock - there can be only one writing
@@ -132,6 +137,7 @@ void delete_account(int id) {
         if (curr->id == id) {
             if (prev) prev->next = curr->next;
             else g_bank.current_state.account_list = curr->next;
+            rwlock_destroy(&curr->account_lock);
             free(curr);
             return;
         }
@@ -169,63 +175,57 @@ void take_snapshot() {
 }
 
 int rollback_bank(int iterations) {
-
     write_lock(&g_bank.history_list_lock);
+    Account* curr = g_bank.current_state.account_list;
+    while (curr){
+        write_lock(&curr->account_lock);
+        curr=curr->next;
+    }
     if (g_bank.history_count < iterations){
         write_unlock(&g_bank.history_list_lock);
         return  -1;
     }
-
-    
     // Target index
-    int target_idx = g_bank.history_count - iterations;
-
+    int target_idx = (g_bank.history_count - iterations)%MAX_HISTORY;
     write_lock(&g_bank.list_lock);
     g_bank.history[g_bank.history_count%MAX_HISTORY] = g_bank.current_state;
     g_bank.history_count++;
 
     // Free current
+    curr = g_bank.current_state.account_list;
+    while (curr){
+        write_unlock(&curr->account_lock);
+        curr=curr->next;
+    }
     free_account_list(g_bank.current_state.account_list);
     
     // Restore state (Deep copy from history, so history remains valid)
     g_bank.current_state.account_list = copy_account_list(g_bank.history[target_idx].account_list);
-
     pthread_mutex_lock(&g_bank.profits_lock);
     g_bank.current_state.bank_ils_profit = g_bank.history[target_idx].bank_ils_profit;
     g_bank.current_state.bank_usd_profit = g_bank.history[target_idx].bank_usd_profit;
     pthread_mutex_unlock(&g_bank.profits_lock);
-    
-    // In a real rollback, do we delete the "future" history? 
-    // Usually yes.
-/*    for (int i = target_idx + 1; i < g_bank.history_count; i++) {
+    for (int i = target_idx + 1; i < g_bank.history_count; i++) {
         free_account_list(g_bank.history[i].account_list);
-    }*/
+    }
     write_unlock(&g_bank.list_lock);
     write_unlock(&g_bank.history_list_lock);
-
     return 0;
 }
-
 void bank_commission() {
     // Logic: take 1-5% from all accounts
     int pct = (rand() % 5) + 1; // 1 to 5
     double factor = (double)pct / 100.0;
-
-    write_lock(&g_bank.list_lock);
+    read_lock(&g_bank.list_lock);
     Account* curr = g_bank.current_state.account_list;
-
-
     while(curr != NULL ) {
         if(curr->is_active) {
+            write_lock(&curr->account_lock);
             int comm_ils = (int)(curr->balance_ils * factor);
             int comm_usd = (int)(curr->balance_usd * factor);
 
-
             curr->balance_ils -= comm_ils;
             curr->balance_usd -= comm_usd;
-
-
-
 
             pthread_mutex_lock(&g_bank.profits_lock);
             g_bank.current_state.bank_ils_profit += comm_ils;
@@ -236,8 +236,9 @@ void bank_commission() {
             sprintf(buf, "Bank: commissions of %d %% were charged, bank gained %d ILS and %d USD from account %d", 
                 pct, comm_ils, comm_usd, curr->id);
             log_msg(buf);
+            write_unlock(&curr->account_lock);
         }
         curr = curr->next;
     }
-    write_unlock(&g_bank.list_lock);
+    read_unlock(&g_bank.list_lock);
 }

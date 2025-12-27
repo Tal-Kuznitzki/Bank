@@ -49,44 +49,48 @@ void process_line(int atm_id, char* line) {
     switch (cmdType) {
         case 'O': { // Open: O <acc> <pass> <ils> <usd>
             if (sscanf(line + 2, "%d %d %d %d", &acc_id, &password, &init_ils, &init_usd) == 4) {
-                read_lock(&g_bank.list_lock);
+                write_lock(&g_bank.list_lock);
+                //read_lock(&g_bank.list_lock);
                 if (find_account(acc_id)) {
                     sprintf(logBuffer, "Error %d: Your transaction failed - account with the same id exists", atm_id);
-                    read_unlock(&g_bank.list_lock);
+                    //read_unlock(&g_bank.list_lock);
                 } else {
-                    read_unlock(&g_bank.list_lock);
-                    write_lock(&g_bank.list_lock);
+                    //read_unlock(&g_bank.list_lock);
+                   // write_lock(&g_bank.list_lock);
                     add_account(create_account(acc_id, password, init_ils, init_usd));
                     sprintf(logBuffer, "%d: New account id is %d with password %d and initial balance %d ILS and %d USD",
                         atm_id, acc_id, password, init_ils, init_usd);
-                    write_unlock(&g_bank.list_lock);
                 }
                 log_msg(logBuffer);
+                write_unlock(&g_bank.list_lock);
 
             }
             break;
         }
         case 'D': { // Deposit: D <acc> <pass> <amount> <curr>
             if (sscanf(line + 2, "%d %d %d %s", &acc_id, &password, &amount, currency) == 4) {
-
                 read_lock(&g_bank.list_lock);
                 Account* acc = find_account(acc_id);
-                read_unlock(&g_bank.list_lock);
-
                 if (!acc) {
                     sprintf(logBuffer, "Error %d: Your transaction failed - account id %d does not exist", atm_id, acc_id);
-                } else if (acc->password != password) {
+                    log_msg(logBuffer);
+                    read_unlock(&g_bank.list_lock);
+                    break;
+                }
+                else if (acc->password != password) {
                     sprintf(logBuffer, "Error %d: Your transaction failed - password for account id %d is incorrect", atm_id, acc_id);
-                } else {
-                    write_lock(&g_bank.list_lock);
+                    log_msg(logBuffer);
+                    read_unlock(&g_bank.list_lock);
+                    break;
+                }
+                write_lock(&acc->account_lock);
+                read_unlock(&g_bank.list_lock);
                     if (strcmp(currency, "ILS") == 0) acc->balance_ils += amount;
                     else acc->balance_usd += amount;
                     sprintf(logBuffer, "%d: Account %d new balance is %d ILS and %d USD after %d %s was deposited", 
                         atm_id, acc_id, acc->balance_ils, acc->balance_usd, amount, currency);
-                    write_unlock(&g_bank.list_lock);
-                }
                 log_msg(logBuffer);
-
+            write_unlock(&acc->account_lock);
             }
             break;
         }
@@ -94,27 +98,31 @@ void process_line(int atm_id, char* line) {
             if (sscanf(line + 2, "%d %d %d %s", &acc_id, &password, &amount, currency) == 4) {
                 read_lock(&g_bank.list_lock);
                 Account* acc = find_account(acc_id);
-                read_unlock(&g_bank.list_lock);
-
                 if (!acc) {
                     sprintf(logBuffer, "Error %d: Your transaction failed - account id %d does not exist", atm_id, acc_id);
+                    log_msg(logBuffer);
+                    read_unlock(&g_bank.list_lock);
+                    break;
                 } else if (acc->password != password) {
                     sprintf(logBuffer, "Error %d: Your transaction failed - password for account id %d is incorrect", atm_id, acc_id);
-                } else {
+                    log_msg(logBuffer);
+                    read_unlock(&g_bank.list_lock);
+                    break;
+                }
+                write_lock(&acc->account_lock);
+                read_unlock(&g_bank.list_lock);
                     bool enough = (strcmp(currency, "ILS") == 0) ? (acc->balance_ils >= amount) : (acc->balance_usd >= amount);
                     if (!enough) {
                         sprintf(logBuffer, "Error %d: Your transaction failed - account id %d balance is %d ILS and %d USD is lower than %d %s", 
                             atm_id, acc_id, acc->balance_ils, acc->balance_usd, amount, currency);
                     } else {
-                        write_lock(&g_bank.list_lock);
                         if (strcmp(currency, "ILS") == 0) acc->balance_ils -= amount;
                         else acc->balance_usd -= amount;
                         sprintf(logBuffer, "%d: Account %d new balance is %d ILS and %d USD after %d %s was withdrawn",
                             atm_id, acc_id, acc->balance_ils, acc->balance_usd, amount, currency);
-                        write_unlock(&g_bank.list_lock);
-                                        }
-                }
-                log_msg(logBuffer);
+                    }
+                    log_msg(logBuffer);
+                    write_unlock(&acc->account_lock);
 
             }
             break;
@@ -123,26 +131,31 @@ void process_line(int atm_id, char* line) {
             if (sscanf(line + 2, "%d %d", &acc_id, &password) == 2) {
                 read_lock(&g_bank.list_lock);
                 Account* acc = find_account(acc_id);
-                read_unlock(&g_bank.list_lock);
                 if (!acc) {
                     sprintf(logBuffer, "Error %d: Your transaction failed - account id %d does not exist", atm_id, acc_id);
+                    log_msg(logBuffer);
+                    read_unlock(&g_bank.list_lock);
+                    break;
+
                 } else if (acc->password != password) {
                     sprintf(logBuffer, "Error %d: Your transaction failed - password for account id %d is incorrect", atm_id, acc_id);
-                } else {
-                    write_lock(&g_bank.list_lock);
-                    sprintf(logBuffer, "%d: Account %d balance is %d ILS and %d USD", 
-                        atm_id, acc_id, acc->balance_ils, acc->balance_usd);
-                    write_unlock(&g_bank.list_lock);
+                    log_msg(logBuffer);
+                    read_unlock(&g_bank.list_lock);
+                    break;
                 }
+                read_lock(&acc->account_lock);
+                read_unlock(&g_bank.list_lock);
+                sprintf(logBuffer, "%d: Account %d balance is %d ILS and %d USD",
+                        atm_id, acc_id, acc->balance_ils, acc->balance_usd);
                 log_msg(logBuffer);
+                read_unlock(&acc->account_lock);
             }
             break;
         }
         case 'Q': { // Close Account: Q <acc> <pass>
             if (sscanf(line + 2, "%d %d", &acc_id, &password) == 2) {
-                read_lock(&g_bank.list_lock);
+                write_lock(&g_bank.list_lock);
                 Account* acc = find_account(acc_id);
-                read_unlock(&g_bank.list_lock);
                 if (!acc) {
                     sprintf(logBuffer, "Error %d: Your transaction failed - account id %d does not exist", atm_id, acc_id);
                 } else if (acc->password != password) {
@@ -150,16 +163,12 @@ void process_line(int atm_id, char* line) {
                 } else {
                     int bal_ils = acc->balance_ils;
                     int bal_usd = acc->balance_usd;
-
-                    write_lock(&g_bank.list_lock);
                     delete_account(acc_id);
-
-
-                    sprintf(logBuffer, "%d: Account %d is now closed. Balance was %d ILS and %d USD", 
+                    sprintf(logBuffer, "%d: Account %d is now closed. Balance was %d ILS and %d USD",
                         atm_id, acc_id, bal_ils, bal_usd);
-                    write_unlock(&g_bank.list_lock);
                 }
                 log_msg(logBuffer);
+                write_unlock(&g_bank.list_lock);
             }
             break;
         }
@@ -168,21 +177,37 @@ void process_line(int atm_id, char* line) {
                 read_lock(&g_bank.list_lock);
                 Account* src = find_account(acc_id);
                 Account* dst = find_account(target_id);
-                read_unlock(&g_bank.list_lock);
-                
                 if (!src) {
                     sprintf(logBuffer, "Error %d: Your transaction failed - account id %d does not exist", atm_id, acc_id);
+                    log_msg(logBuffer);
+                    read_unlock(&g_bank.list_lock);
+                    break;
                 } else if (!dst) {
                     sprintf(logBuffer, "Error %d: Your transaction failed - account id %d does not exist", atm_id, target_id);
+                    log_msg(logBuffer);
+                    read_unlock(&g_bank.list_lock);
+                    break;
                 } else if (src->password != password) {
                     sprintf(logBuffer, "Error %d: Your transaction failed - password for account id %d is incorrect", atm_id, acc_id);
-                } else {
+                    log_msg(logBuffer);
+                    read_unlock(&g_bank.list_lock);
+                    break;
+                }
+                if (src->id < dst->id){
+                    write_lock(&src->account_lock);
+                    write_lock(&dst->account_lock);
+                     }
+                else{
+                    write_lock(&dst->account_lock);
+                    write_lock(&src->account_lock);
+                }
+
+                read_unlock(&g_bank.list_lock);
                     bool enough = (strcmp(currency, "ILS") == 0) ? (src->balance_ils >= amount) : (src->balance_usd >= amount);
                     if (!enough) {
                         sprintf(logBuffer, "Error %d: Your transaction failed - account id %d balance is %d ILS and %d USD is lower than %d %s", 
                             atm_id, acc_id, src->balance_ils, src->balance_usd, amount, currency);
                     } else {
-                        write_lock(&g_bank.list_lock);
                         if (strcmp(currency, "ILS") == 0) {
                             src->balance_ils -= amount;
                             dst->balance_ils += amount;
@@ -192,11 +217,16 @@ void process_line(int atm_id, char* line) {
                         }
                         sprintf(logBuffer, "%d: Transfer %d %s from account %d to account %d new account balance is %d ILS and %d USD new target account balance is %d ILS and %d USD",
                             atm_id, amount, currency, acc_id, target_id, src->balance_ils, src->balance_usd, dst->balance_ils, dst->balance_usd);
-                        write_unlock(&g_bank.list_lock);
                     }
-                }
                 log_msg(logBuffer);
-
+                if (src->id < dst->id){
+                    write_unlock(&dst->account_lock);
+                    write_unlock(&src->account_lock);
+                }
+                else{
+                    write_unlock(&src->account_lock);
+                    write_unlock(&dst->account_lock);
+                }
             }
             break;
         }
@@ -208,21 +238,27 @@ void process_line(int atm_id, char* line) {
              if (sscanf(line + 2, "%d %d %s %s %s %d", &acc_id, &password, currency, toWord, curr2, &amount) == 6) {
                  read_lock(&g_bank.list_lock);
                  Account* acc = find_account(acc_id);
-                 read_unlock(&g_bank.list_lock);
                  if (!acc) {
                      sprintf(logBuffer, "Error %d: Your transaction failed - account id %d does not exist", atm_id, acc_id);
+                     log_msg(logBuffer);
+                     read_unlock(&g_bank.list_lock);
+                     break;
                  } else if (acc->password != password) {
                      sprintf(logBuffer, "Error %d: Your transaction failed - password for account id %d is incorrect", atm_id, acc_id);
-                 } else {
+                     log_msg(logBuffer);
+                     read_unlock(&g_bank.list_lock);
+                     break;
+                 }
+                 write_lock(&acc->account_lock);
+                 read_unlock(&g_bank.list_lock);
                      // Check funds
                      bool isILS = (strcmp(currency, "ILS") == 0);
                      int balance = isILS ? acc->balance_ils : acc->balance_usd;
-                     
                      if (balance < amount) {
                         sprintf(logBuffer, "Error %d: Your transaction failed - account id %d balance is %d ILS and %d USD is lower than %d %s",
                              atm_id, acc_id, acc->balance_ils, acc->balance_usd, amount, currency);
-                     } else {
-                         write_lock(&g_bank.list_lock);
+                     }
+                     else {
                          // Perform exchange: 1 USD = 5 ILS
                          if (isILS) {
                              // ILS to USD
@@ -235,11 +271,9 @@ void process_line(int atm_id, char* line) {
                          }
                          sprintf(logBuffer, "%d: Account %d new balance is %d ILS and %d USD after %d %s was exchanged",
                          atm_id, acc_id, acc->balance_ils, acc->balance_usd, amount, currency);
-                         write_unlock(&g_bank.list_lock);
                      }
-                 }
                  log_msg(logBuffer);
-
+                 write_unlock(&acc->account_lock);
              }
              break;
         }
@@ -253,8 +287,9 @@ void process_line(int atm_id, char* line) {
                  //    (In a real threaded sim, a thread would sleep and write back).
                  read_lock(&g_bank.list_lock);
                  Account* acc = find_account(acc_id);
-                 read_unlock(&g_bank.list_lock);
                  if(acc && acc->password == password) {
+                     write_lock(&acc->account_lock);
+                     read_unlock(&g_bank.list_lock);
                       bool isILS = (strcmp(currency, "ILS") == 0);
                       if ((isILS && acc->balance_ils >= amount) || (!isILS && acc->balance_usd >= amount)) {
                            if(isILS) acc->balance_ils -= amount; else acc->balance_usd -= amount;
@@ -273,7 +308,11 @@ void process_line(int atm_id, char* line) {
                       if(isILS) acc->balance_ils += final_amount ; else acc->balance_usd += final_amount;
                       acc->invested_amount = final_amount; 
                  }
-                }
+                     write_unlock(&acc->account_lock);
+                 }
+                 else{
+                     read_unlock(&g_bank.list_lock);
+                 }
                  // Not logging anything because no specific log string was provided in the translation for Investment Success.
              }
              break;
@@ -294,7 +333,6 @@ void process_line(int atm_id, char* line) {
             // Just parse and log, no actual sleep in single-threaded
             int sleep_time;
             if (sscanf(line + 1, "%d", &sleep_time) == 1) {
-                
                 sprintf(logBuffer, "%d: Currently on a scheduled break. Service will resume within %d ms.", atm_id, sleep_time);
                 log_msg(logBuffer);
                 sleep(sleep_time/1000);

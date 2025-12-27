@@ -14,6 +14,7 @@ Account* create_account(int id, int password, int init_ils, int init_usd) {
     new_acc->investment_duration = 0;
     new_acc->next = NULL;
     new_acc->i_start_time = 0;
+    rwlock_init(&new_acc->account_lock);
     return new_acc;
 }
 
@@ -45,6 +46,7 @@ void free_account_list(Account* head) {
     while (head) {
         Account* temp = head;
         head = head->next;
+        rwlock_destroy(&temp->account_lock);
         free(temp);
     }
 }

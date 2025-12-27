@@ -5,6 +5,7 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <time.h>
+#include "rwlock.h"
 
 typedef struct Account {
     int id;
@@ -19,6 +20,7 @@ typedef struct Account {
     time_t i_start_time;
     
     struct Account* next; // Linked list pointer
+    ReadWriteLock account_lock ;
 } Account;
 
 // Helper to create a new account

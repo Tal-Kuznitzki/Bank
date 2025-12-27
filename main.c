@@ -4,16 +4,12 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include <time.h>
-
-
-
-
 void* status_printer_thread(void* arg) {
     struct timespec ts;
     ts.tv_sec = STATUS_PRINT_INTERVAL /1000 ;
     ts.tv_nsec = ( (STATUS_PRINT_INTERVAL % 1000)*1000*1000) ;
 
-    while (1) {
+    while (system_running) {
         print_bank_status();
         // Sleep for 10ms
         nanosleep(&ts,NULL);
@@ -21,15 +17,16 @@ void* status_printer_thread(void* arg) {
     return NULL;
 }
 void* commission_thread(void* arg) {
- //   while(1) {
- //       bank_commission(); // You implemented this in bank.c
- //       double  commission_slp_tme =  COMMISSION_INTERVAL/1000 ;
- //       sleep(commission_slp_tme); // 30ms
-  //  }
+    while(system_running) {
+        bank_commission(); // You implemented this in bank.c
+        double  commission_slp_tme =  COMMISSION_INTERVAL/1000 ;
+       sleep(commission_slp_tme); // 30ms
+    }
+
     return NULL;
 }
 void* snapshot_thread(void* arg) {
-    while(1) {
+    while(system_running) {
         take_snapshot();
         double  snpsht_slp_tme =  STATUS_PRINT_INTERVAL/1000 ;
         sleep(snpsht_slp_tme); // 30ms
@@ -54,38 +51,28 @@ int main(int argc, char* argv[]) {
     }
 
     //rwlock_init()
-
     pthread_t* atm_threads = malloc(sizeof(pthread_t) * num_atms);
    // int num_VIP_threads=atoi(argv[1]);
-
     // We ignore VIP_threads count for this single-threaded phase
     // int vip_threads = atoi(argv[1]);
-
     init_bank();
     //#threads = #files + 2 (one for printing times) (one for investment)
-
-
-
     pthread_t printer_tid;
 
     if (pthread_create(&printer_tid, NULL, status_printer_thread, NULL) != 0) {
         perror("Bank error: pthread_create failed");
         return 1;
     }
-
     pthread_t commission_tid;
     if (pthread_create(&commission_tid, NULL, commission_thread, NULL) != 0) {
         perror("Bank error: pthread_create failed");
         return 1;
     }
-
-
-
-/*    pthread_t snapshot_tid;
+    pthread_t snapshot_tid;
     if (pthread_create(&snapshot_tid, NULL, snapshot_thread, NULL) != 0) {
         perror("Bank error: pthread_create failed");
         return 1;
-    }*/
+    }
 
 
 
@@ -108,21 +95,15 @@ int main(int argc, char* argv[]) {
     for (int i = 0; i < num_atms; i++) {
         pthread_join(atm_threads[i], NULL);
     }
-
-    pthread_cancel(printer_tid);
+    system_running=0;
+/*    pthread_cancel(printer_tid);
     pthread_cancel(commission_tid);
-    //pthread_cancel(snapshot_tid);
+    pthread_cancel(snapshot_tid);*/
 
-    // 2. Wait for them to actually stop
-    // If we don't wait, we might destroy the mutexes while they are
-    // still in the middle of shutting down.
     pthread_join(printer_tid, NULL);
     pthread_join(commission_tid, NULL);
-    //pthread_join(snapshot_tid, NULL);
-
+    pthread_join(snapshot_tid, NULL);
     free(atm_threads);
-
-
     close_bank();
     return 0;
 }
