@@ -7,9 +7,29 @@
 
 
 #define CMD_LEN 256
-
+queue_node* queue_head = NULL;
 
 // ... existing includes ...
+
+void add_to_queue(queue_node* new_node) {
+    if (queue_head == NULL || new_node->priority > queue_head->priority) {
+        new_node->next = queue_head;
+        queue_head = new_node;
+        return;
+    }
+
+    queue_node* current = queue_head;
+    
+    // Move until we find a node whose 'next' is lower priority than our 'new_node'
+    while (current->next != NULL && current->next->priority >= new_node->priority) {
+        current = current->next;
+    }
+
+    // Insert the node
+    new_node->next = current->next;
+    current->next = new_node;
+}
+
 
 void* atm_thread_routine(void* args) {
     ATMThreadArgs* atm_args = (ATMThreadArgs*)args;
@@ -40,7 +60,29 @@ void process_line(int atm_id, char* line) {
     // In a real parser, we might strip "VIP=XX" from the end first.
     // For this implementation, we rely on sscanf ignoring trailing format if strict structure isn't enforced,
     // or we manually parse. Given the strict formats, let's assume we parse the command char first.
-    
+    char *ptr = strstr(line, "VIP");
+
+    if (ptr != NULL) {
+        printf("Found: %s\n", ptr);
+        
+        int vip_value;
+        if (sscanf(ptr, "VIP=%d", &vip_value) == 1) {
+            printf("The VIP value is: %d\n", vip_value);
+        }
+        *ptr=0;
+        queue_node* new_VIP_node = (queue_node*)malloc(sizeof(queue_node));
+        new_VIP_node->atm_id = atm_id;
+        new_VIP_node->priority = vip_value;
+        new_VIP_node->task = line;
+        new_VIP_node->next = NULL;
+        
+        add_to_queue(new_VIP_node);
+        return;
+
+    } else {
+        printf("VIP not found in the line.\n");
+    }
+
     cmdType = line[0];
     
     // Note: To support "VIP=X" or "PERSISTENT" at the end, standard sscanf might fail
