@@ -13,10 +13,8 @@
 
 void* atm_thread_routine(void* args) {
     ATMThreadArgs* atm_args = (ATMThreadArgs*)args;
-
     // Call the logic you already wrote
     process_atm_file(atm_args->atm_id, atm_args->filepath);
-
     // Free the argument struct allocated in main
     free(atm_args);
 
@@ -53,17 +51,18 @@ void process_line(int atm_id, char* line) {
             if (sscanf(line + 2, "%d %d %d %d", &acc_id, &password, &init_ils, &init_usd) == 4) {
                 read_lock(&g_bank.list_lock);
                 if (find_account(acc_id)) {
-                    read_unlock(&g_bank.list_lock);
                     sprintf(logBuffer, "Error %d: Your transaction failed - account with the same id exists", atm_id);
+                    read_unlock(&g_bank.list_lock);
                 } else {
                     read_unlock(&g_bank.list_lock);
                     write_lock(&g_bank.list_lock);
                     add_account(create_account(acc_id, password, init_ils, init_usd));
                     sprintf(logBuffer, "%d: New account id is %d with password %d and initial balance %d ILS and %d USD",
                         atm_id, acc_id, password, init_ils, init_usd);
+                    write_unlock(&g_bank.list_lock);
                 }
                 log_msg(logBuffer);
-                write_unlock(&g_bank.list_lock);
+
             }
             break;
         }
@@ -82,13 +81,12 @@ void process_line(int atm_id, char* line) {
                     write_lock(&g_bank.list_lock);
                     if (strcmp(currency, "ILS") == 0) acc->balance_ils += amount;
                     else acc->balance_usd += amount;
-
                     sprintf(logBuffer, "%d: Account %d new balance is %d ILS and %d USD after %d %s was deposited", 
                         atm_id, acc_id, acc->balance_ils, acc->balance_usd, amount, currency);
-
+                    write_unlock(&g_bank.list_lock);
                 }
                 log_msg(logBuffer);
-                write_unlock(&g_bank.list_lock);
+
             }
             break;
         }
@@ -97,6 +95,7 @@ void process_line(int atm_id, char* line) {
                 read_lock(&g_bank.list_lock);
                 Account* acc = find_account(acc_id);
                 read_unlock(&g_bank.list_lock);
+
                 if (!acc) {
                     sprintf(logBuffer, "Error %d: Your transaction failed - account id %d does not exist", atm_id, acc_id);
                 } else if (acc->password != password) {
@@ -112,10 +111,11 @@ void process_line(int atm_id, char* line) {
                         else acc->balance_usd -= amount;
                         sprintf(logBuffer, "%d: Account %d new balance is %d ILS and %d USD after %d %s was withdrawn",
                             atm_id, acc_id, acc->balance_ils, acc->balance_usd, amount, currency);
-                    }
+                        write_unlock(&g_bank.list_lock);
+                                        }
                 }
                 log_msg(logBuffer);
-                write_unlock(&g_bank.list_lock);
+
             }
             break;
         }
@@ -132,9 +132,9 @@ void process_line(int atm_id, char* line) {
                     write_lock(&g_bank.list_lock);
                     sprintf(logBuffer, "%d: Account %d balance is %d ILS and %d USD", 
                         atm_id, acc_id, acc->balance_ils, acc->balance_usd);
+                    write_unlock(&g_bank.list_lock);
                 }
                 log_msg(logBuffer);
-                write_unlock(&g_bank.list_lock);
             }
             break;
         }
@@ -157,9 +157,9 @@ void process_line(int atm_id, char* line) {
 
                     sprintf(logBuffer, "%d: Account %d is now closed. Balance was %d ILS and %d USD", 
                         atm_id, acc_id, bal_ils, bal_usd);
+                    write_unlock(&g_bank.list_lock);
                 }
                 log_msg(logBuffer);
-                write_unlock(&g_bank.list_lock);
             }
             break;
         }
@@ -190,13 +190,13 @@ void process_line(int atm_id, char* line) {
                             src->balance_usd -= amount;
                             dst->balance_usd += amount;
                         }
-
-                        sprintf(logBuffer, "%d: Transfer %d %s from account %d to account %d new account balance is %d ILS and %d USD new target account balance is %d ILS and %d USD", 
+                        sprintf(logBuffer, "%d: Transfer %d %s from account %d to account %d new account balance is %d ILS and %d USD new target account balance is %d ILS and %d USD",
                             atm_id, amount, currency, acc_id, target_id, src->balance_ils, src->balance_usd, dst->balance_ils, dst->balance_usd);
+                        write_unlock(&g_bank.list_lock);
                     }
                 }
                 log_msg(logBuffer);
-                write_unlock(&g_bank.list_lock);
+
             }
             break;
         }
@@ -235,10 +235,11 @@ void process_line(int atm_id, char* line) {
                          }
                          sprintf(logBuffer, "%d: Account %d new balance is %d ILS and %d USD after %d %s was exchanged",
                          atm_id, acc_id, acc->balance_ils, acc->balance_usd, amount, currency);
+                         write_unlock(&g_bank.list_lock);
                      }
                  }
                  log_msg(logBuffer);
-                 write_unlock(&g_bank.list_lock);
+
              }
              break;
         }

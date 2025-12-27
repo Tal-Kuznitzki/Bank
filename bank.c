@@ -171,7 +171,10 @@ void take_snapshot() {
 int rollback_bank(int iterations) {
 
     write_lock(&g_bank.history_list_lock);
-    if (g_bank.history_count < iterations) return -1;
+    if (g_bank.history_count < iterations){
+        write_unlock(&g_bank.history_list_lock);
+        return  -1;
+    }
 
     
     // Target index

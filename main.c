@@ -1,31 +1,31 @@
+#define _POSIX_C_SOURCE 199309L
 #include "bank.h"
 #include "atm.h"
 #include <stdlib.h>
 #include <pthread.h>
 #include <time.h>
-#define _POSIX_C_SOURCE 199309L
+
 
 
 
 void* status_printer_thread(void* arg) {
     struct timespec ts;
     ts.tv_sec = STATUS_PRINT_INTERVAL /1000 ;
-    ts.tv_nsec = (STATUS_PRINT_INTERVAL*1000*1000)
+    ts.tv_nsec = ( (STATUS_PRINT_INTERVAL % 1000)*1000*1000) ;
 
     while (1) {
         print_bank_status();
         // Sleep for 10ms
-        double  print_sts_slp_tme =  (STATUS_PRINT_INTERVAL*1000)*1000 ;
         nanosleep(&ts,NULL);
     }
     return NULL;
 }
 void* commission_thread(void* arg) {
-    while(1) {
-        bank_commission(); // You implemented this in bank.c
-        double  commission_slp_tme =  COMMISSION_INTERVAL/1000 ;
-        sleep(commission_slp_tme); // 30ms
-    }
+ //   while(1) {
+ //       bank_commission(); // You implemented this in bank.c
+ //       double  commission_slp_tme =  COMMISSION_INTERVAL/1000 ;
+ //       sleep(commission_slp_tme); // 30ms
+  //  }
     return NULL;
 }
 void* snapshot_thread(void* arg) {

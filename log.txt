@@ -1,0 +1,14 @@
+1: New account id is 6666 with password 6666 and initial balance 18 ILS and 50 USD
+1: Account 6666 new balance is 68 ILS and 50 USD after 50 ILS was deposited
+1: New account id is 6667 with password 6667 and initial balance 19 ILS and 0 USD
+1: Account 6667 new balance is 0 ILS and 0 USD after 19 ILS was withdrawn
+1: Currently on a scheduled break. Service will resume within 10 ms.
+Error 2: Your transaction failed - account id 6666 balance is 18 ILS and 50 USD is lower than 100 ILS
+2: Account 6666 new balance is 51 ILS and 50 USD after 17 ILS was withdrawn
+Error 2: Your transaction failed - account id 6667 balance is 0 ILS and 0 USD is lower than 20 USD
+2: Account 6666 new balance is 51 ILS and 31 USD after 19 USD was withdrawn
+1: Account 6666 balance is 51 ILS and 31 USD
+1: Account 6667 balance is 0 ILS and 0 USD
+1: Rollback to 6 bank iterations ago was completed successfully
+1: Account 6666 balance is 68 ILS and 50 USD
+1: Account 6667 balance is 0 ILS and 0 USD
