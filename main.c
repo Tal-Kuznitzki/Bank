@@ -4,6 +4,10 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include <time.h>
+
+//queue_node* queue_head = NULL;
+VIP_args* vip_args = NULL;
+
 void* status_printer_thread(void* arg) {
     struct timespec ts;
     ts.tv_sec = STATUS_PRINT_INTERVAL /1000 ;
@@ -50,25 +54,25 @@ int main(int argc, char* argv[]) {
         return -1;
     }
     pthread_t* atm_threads = malloc(sizeof(pthread_t) * num_atms);
+    pthread_t* vip_threads = NULL;
     int num_VIP_threads=atoi(argv[1]);
     init_bank();
     //#threads = #files + 2 (one for printing times) (one for investment)
     pthread_t printer_tid;
 
-    if (num_VIP_threads!=NULL &&  num_VIP_threads>0){
+    if (num_VIP_threads>0){
         pthread_t* vip_threads = malloc(sizeof(pthread_t) * num_VIP_threads);
+        vip_args = malloc(sizeof(VIP_args));
+        vip_args->queue_head = NULL;
+        pthread_mutex_init(&vip_args->queue_lock, NULL);
+        pthread_cond_init(&vip_args->queue_cond, NULL);
         for (int i = 0; i < num_VIP_threads ; ++i) {
-            ATMThreadArgs* vip_args = malloc(sizeof(ATMThreadArgs));
-            vip_args->atm_id = i + 1;
-            pthread_create(&vip_threads[i], NULL, VIP_thread, NULL) != 0);
+           
+            if (pthread_create(&vip_threads[i], NULL, vip_thread_routine, vip_args) != 0) {
+                perror("Bank error: pthread_create failed");
+                return 1;
+            }
         }
-        @@@
-        for (int i = 0; i < num_atms; i++) {
-            ATMThreadArgs* args = malloc(sizeof(ATMThreadArgs));
-            args->atm_id = i + 1; // ATMs are 1-based usually
-            args->filepath = argv[i + 2]; // Skip ./bank and VIP_count
-        }
-        @#@@
 
     }
 
@@ -112,6 +116,32 @@ int main(int argc, char* argv[]) {
 /*    pthread_cancel(printer_tid);
     pthread_cancel(commission_tid);
     pthread_cancel(snapshot_tid);*/
+    if (num_VIP_threads>0){
+        pthread_mutex_lock(&vip_args->queue_lock);
+        pthread_cond_broadcast(&vip_args->queue_cond);
+        pthread_mutex_unlock(&vip_args->queue_lock);
+
+        for (int i = 0; i < num_VIP_threads; i++) {
+            pthread_join(vip_threads[i], NULL);
+        }
+
+        pthread_mutex_lock(&vip_args->queue_lock);
+        queue_node* curr = vip_args->queue_head;
+        while (curr != NULL) {
+            queue_node* temp = curr;
+            curr = curr->next;
+            free(temp); // Delete the memory of the remaining task
+        }
+        //vip_args->queue_head = NULL;
+        pthread_mutex_unlock(&vip_args->queue_lock);
+
+        // Clean up resources ONLY after all threads have joined
+        pthread_mutex_destroy(&vip_args->queue_lock);
+        pthread_cond_destroy(&vip_args->queue_cond);
+        free(vip_args);
+        free(vip_threads);
+    }
+    
 
     pthread_join(printer_tid, NULL);
     pthread_join(commission_tid, NULL);

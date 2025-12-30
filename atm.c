@@ -7,18 +7,17 @@
 
 
 #define CMD_LEN 256
-queue_node* queue_head = NULL;
 
 // ... existing includes ...
 
 void add_to_queue(queue_node* new_node) {
-    if (queue_head == NULL || new_node->priority > queue_head->priority) {
-        new_node->next = queue_head;
-        queue_head = new_node;
+    if (vip_args->queue_head == NULL || new_node->priority > vip_args->queue_head->priority) {
+        new_node->next = vip_args->queue_head;
+        vip_args->queue_head = new_node;
         return;
     }
 
-    queue_node* current = queue_head;
+    queue_node* current = vip_args->queue_head;
     
     // Move until we find a node whose 'next' is lower priority than our 'new_node'
     while (current->next != NULL && current->next->priority >= new_node->priority) {
@@ -28,6 +27,47 @@ void add_to_queue(queue_node* new_node) {
     // Insert the node
     new_node->next = current->next;
     current->next = new_node;
+}
+
+// void* destroy_vip_threads(void* args) {
+//     VIP_args* vip_args = (VIP_args*)args;
+//     pthread_mutex_lock(&vip_args->queue_lock);
+//     queue_node* curr = vip_args->queue_head;
+//      while (curr) {
+//         queue_node* temp = curr;
+//         curr = curr->next;
+//         free(temp);
+//     }
+//     pthread_mutex_unlock(&vip_args->queue_lock);
+//     pthread_mutex_destroy(&vip_args->queue_lock);
+//     pthread_cond_destroy(&vip_args->queue_cond);
+//     return NULL;
+
+// }
+
+void* vip_thread_routine(void* args) {
+    VIP_args* vip_args = (VIP_args*)args;
+    while (1){
+        pthread_mutex_lock(&vip_args->queue_lock);
+        while (vip_args->queue_head==NULL && system_running) {
+            pthread_cond_wait(&vip_args->queue_cond, &vip_args->queue_lock);
+        }
+
+        if (system_running == 0 && vip_args->queue_head==NULL) {
+            pthread_mutex_unlock(&vip_args->queue_lock);
+            break;
+        }
+
+        queue_node* task = vip_args->queue_head;
+        if (vip_args->queue_head != NULL){
+            vip_args->queue_head = vip_args->queue_head->next;
+        }
+        pthread_mutex_unlock(&vip_args->queue_lock);
+
+        process_line(task->atm_id, task->task); //do the task
+        free(task);
+    }
+    return NULL;
 }
 
 
@@ -73,7 +113,7 @@ void process_line(int atm_id, char* line) {
         queue_node* new_VIP_node = (queue_node*)malloc(sizeof(queue_node));
         new_VIP_node->atm_id = atm_id;
         new_VIP_node->priority = vip_value;
-        new_VIP_node->task = line;
+        strcpy(new_VIP_node->task, line);
         new_VIP_node->next = NULL;
         
         add_to_queue(new_VIP_node);
