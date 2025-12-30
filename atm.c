@@ -27,6 +27,7 @@ void add_to_queue(queue_node* new_node) {
     // Insert the node
     new_node->next = current->next;
     current->next = new_node;
+    pthread_cond_signal(&vip_args->queue_cond);
 }
 
 // void* destroy_vip_threads(void* args) {
@@ -64,7 +65,7 @@ void* vip_thread_routine(void* args) {
         }
         pthread_mutex_unlock(&vip_args->queue_lock);
 
-        process_line(task->atm_id, task->task); //do the task
+        process_line(task->atm_id, task->task, task->is_active); //do the task
         free(task);
     }
     return NULL;
@@ -74,9 +75,9 @@ void* vip_thread_routine(void* args) {
 void* atm_thread_routine(void* args) {
     ATMThreadArgs* atm_args = (ATMThreadArgs*)args;
     // Call the logic you already wrote
-    process_atm_file(atm_args->atm_id, atm_args->filepath);
+    process_atm_file(atm_args->atm_id, atm_args->filepath, atm_args->is_active);
     // Free the argument struct allocated in main
-    free(atm_args);
+    //free(atm_args);
 
     return NULL;
 }
@@ -89,7 +90,9 @@ void trim_newline(char* str) {
     if (p) *p = 0;
 }
 
-void process_line(int atm_id, char* line) {
+void process_line(int atm_id, char* line, int is_active) {
+    if (is_active){
+
     char logBuffer[512];
     char cmdType;
     int acc_id, password, amount, time_ms, target_id;
@@ -112,16 +115,19 @@ void process_line(int atm_id, char* line) {
         *ptr=0;
         queue_node* new_VIP_node = (queue_node*)malloc(sizeof(queue_node));
         new_VIP_node->atm_id = atm_id;
+        new_VIP_node->is_active = is_active;
         new_VIP_node->priority = vip_value;
         strcpy(new_VIP_node->task, line);
         new_VIP_node->next = NULL;
-        
+        pthread_mutex_lock(&vip_args->queue_lock);
         add_to_queue(new_VIP_node);
+        pthread_mutex_unlock(&vip_args->queue_lock);
         return;
 
-    } else {
-        printf("VIP not found in the line.\n");
-    }
+    } 
+    //else {
+    //     //printf("VIP not found in the line.\n");
+    // }
 
     cmdType = line[0];
     
@@ -419,12 +425,32 @@ void process_line(int atm_id, char* line) {
             }
             break;
         }
+        case 'C': {
+            int target_atm;
+            if (sscanf(line + 1, "%d", &target_atm) == 1) {
+                
+                if (target_atm < 1 || target_atm > glob_num_atm) {
+                    char err[256];
+                    sprintf(err, "Error %d: Your transaction failed - ATM ID %d does not exist", atm_id, target_atm);
+                    log_msg(err);
+                } 
+                else if (global_args_arr[target_atm - 1]->is_active == 0) {
+                    char err[256];
+                    sprintf(err, "Error %d: Your close operation failed - ATM ID %d is already in a closed state", atm_id, target_atm);
+                    log_msg(err);
+                } 
+
+                req_arr[target_atm-1] = atm_id;
+                printf("in c, target_atm = %d, req_arr[target_atm-1]= %d\n", target_atm, req_arr[target_atm-1]);
+            }
+        }
         default:
             break;
     }
 }
+}
 
-void process_atm_file(int atm_id, const char* filepath) {
+void process_atm_file(int atm_id, const char* filepath, int is_active) {
     FILE* f = fopen(filepath, "r");
     if (!f) {
         printf("Bank error: illegal arguments\n"); // Using spec error format
@@ -440,7 +466,7 @@ void process_atm_file(int atm_id, const char* filepath) {
         // In the threaded version, this happens every 500ms. Here, we do it per op to test R logic.
         take_snapshot();
 
-        process_line(atm_id, line);
+        process_line(atm_id, line, is_active);
 
     }
     fclose(f);

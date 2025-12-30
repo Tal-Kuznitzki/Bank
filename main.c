@@ -7,6 +7,9 @@
 
 //queue_node* queue_head = NULL;
 VIP_args* vip_args = NULL;
+int glob_num_atm = 0;
+int* req_arr = NULL;
+ATMThreadArgs** global_args_arr;
 
 void* status_printer_thread(void* arg) {
     struct timespec ts;
@@ -15,6 +18,18 @@ void* status_printer_thread(void* arg) {
 
     while (system_running) {
         print_bank_status();
+        for (int i = 0 ; i<glob_num_atm ; i++){
+            printf("inside for\n");
+            if (req_arr[i] != 0){
+                global_args_arr[i]->is_active = 0;
+                int target_id = i - 1;
+                int source_id = req_arr[i];
+                char msg[256];
+                sprintf(msg, "Bank: ATM %d closed %d successfully", source_id, target_id);
+                log_msg(msg);
+                req_arr[i]=0;
+            }
+        }
         // Sleep for 10ms
         nanosleep(&ts,NULL);
     }
@@ -47,21 +62,25 @@ int main(int argc, char* argv[]) {
         return 1;
     }
     int num_atms = argc - 2;
-
-    if  ( num_atms<= 0 ){
+     if  ( num_atms<= 0 ){
         //TODO ERROR!!
         printf("errorrrrr");
         return -1;
     }
+    glob_num_atm = num_atms;
+    req_arr = malloc(sizeof(int)*num_atms);
+    if (req_arr == NULL) {
+        perror("Bank error: malloc failed");
+        exit(1);
+    }
+
+    init_bank();
+
     pthread_t* atm_threads = malloc(sizeof(pthread_t) * num_atms);
     pthread_t* vip_threads = NULL;
     int num_VIP_threads=atoi(argv[1]);
-    init_bank();
-    //#threads = #files + 2 (one for printing times) (one for investment)
-    pthread_t printer_tid;
-
-    if (num_VIP_threads>0){
-        pthread_t* vip_threads = malloc(sizeof(pthread_t) * num_VIP_threads);
+      if (num_VIP_threads>0){
+        vip_threads = malloc(sizeof(pthread_t) * num_VIP_threads);
         vip_args = malloc(sizeof(VIP_args));
         vip_args->queue_head = NULL;
         pthread_mutex_init(&vip_args->queue_lock, NULL);
@@ -75,6 +94,10 @@ int main(int argc, char* argv[]) {
         }
 
     }
+    //#threads = #files + 2 (one for printing times) (one for investment)
+    pthread_t printer_tid;
+
+  
 
     if (pthread_create(&printer_tid, NULL, status_printer_thread, NULL) != 0) {
         perror("Bank error: pthread_create failed");
@@ -92,13 +115,16 @@ int main(int argc, char* argv[]) {
     }
 
 
-
+    global_args_arr = malloc(sizeof(ATMThreadArgs*) * num_atms);
 
     // Iterate sequentially through ATM files
     for (int i = 0; i < num_atms; i++) {
+        req_arr[i]=0;
         ATMThreadArgs* args = malloc(sizeof(ATMThreadArgs));
         args->atm_id = i + 1; // ATMs are 1-based usually
         args->filepath = argv[i + 2]; // Skip ./bank and VIP_count
+        args->is_active = 1;
+        global_args_arr[i]=args;
 
         if (pthread_create(&atm_threads[i], NULL, atm_thread_routine, args) != 0) {
             perror("Bank error: pthread_create failed");
@@ -141,7 +167,14 @@ int main(int argc, char* argv[]) {
         free(vip_args);
         free(vip_threads);
     }
-    
+
+    for (int i = 0; i < num_atms; i++) {
+        if (global_args_arr[i] != NULL) {
+            free(global_args_arr[i]); 
+        }
+    }
+
+    free(global_args_arr);
 
     pthread_join(printer_tid, NULL);
     pthread_join(commission_tid, NULL);
