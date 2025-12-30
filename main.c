@@ -35,20 +35,26 @@ void* status_printer_thread(void* arg) {
     }
     return NULL;
 }
-void* commission_thread(void* arg) {
-    while(system_running) {
-        bank_commission(); // You implemented this in bank.c
-        double  commission_slp_tme =  COMMISSION_INTERVAL/1000 ;
-       sleep(commission_slp_tme); // 30ms
-    }
 
+void* commission_thread(void* arg) {
+    struct timespec ts;
+    ts.tv_sec = COMMISSION_INTERVAL /1000 ;
+    ts.tv_nsec = ( (COMMISSION_INTERVAL % 1000)*1000*1000) ;
+
+    while (system_running) {
+        bank_commission();
+        nanosleep(&ts,NULL);
+    }
     return NULL;
 }
 void* snapshot_thread(void* arg) {
-    while(system_running) {
+    struct timespec ts;
+    ts.tv_sec = SNAPSHOT_INTERVAL_TIME /1000 ;
+    ts.tv_nsec = ( (SNAPSHOT_INTERVAL_TIME % 1000)*1000*1000) ;
+
+    while (system_running) {
         take_snapshot();
-        double  snpsht_slp_tme =  STATUS_PRINT_INTERVAL/1000 ;
-        sleep(snpsht_slp_tme); // 30ms
+        nanosleep(&ts,NULL);
     }
     return NULL;
 }

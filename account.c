@@ -29,6 +29,7 @@ Account* copy_account_list(Account* head) {
         // Copy data
         *node = *curr; 
         node->next = NULL;
+        rwlock_init(&node->account_lock);
 
         if (!new_head) {
             new_head = node;

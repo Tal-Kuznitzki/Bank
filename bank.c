@@ -148,19 +148,25 @@ void delete_account(int id) {
 
 void take_snapshot() {
     write_lock(&g_bank.history_list_lock);
-    if (g_bank.history_count >= MAX_HISTORY) {
+    // 1. If Full: Free Oldest, then Shift Left
+    if (g_bank.history_count == MAX_HISTORY) {
+        // [IMPORTANT] Free the memory of the oldest snapshot before overwriting
+        free_account_list(g_bank.history[0].account_list);
 
- // oldway - free_account_list(g_bank.history[g_bank.history_count%MAX_HISTORY].account_list);
-      for(int i=0; i < MAX_HISTORY - 1; i++) {
-            g_bank.history[i] = g_bank.history[i+1];
+        // Shift: [1]->[0], [2]->[1], ...
+        for (int i = 0; i < MAX_HISTORY - 1; i++) {
+            g_bank.history[i] = g_bank.history[i + 1];
         }
+
+        // Decrement count because we effectively removed one
         g_bank.history_count--;
     }
-    
-    int idx = g_bank.history_count; // was %MAX_HISTORY . ...
+
+    // 2. Insert New at the end
+    int idx = g_bank.history_count; // This is the next free slot
 
     read_lock(&g_bank.list_lock);
-
+    // Deep copy current live state into history
     g_bank.history[idx].account_list = copy_account_list(g_bank.current_state.account_list);
 
     pthread_mutex_lock(&g_bank.profits_lock);
@@ -175,42 +181,49 @@ void take_snapshot() {
 }
 
 int rollback_bank(int iterations) {
+//
+    char logBuffer[512]; //DEBUG
+    sprintf(logBuffer,"OPENED LOCKS !!!!!!!!!!!!!!!");
     write_lock(&g_bank.history_list_lock);
-    Account* curr = g_bank.current_state.account_list;
-    while (curr){
-        write_lock(&curr->account_lock);
-        curr=curr->next;
-    }
-    if (g_bank.history_count < iterations){
-        write_unlock(&g_bank.history_list_lock);
-        return  -1;
-    }
-    // Target index
-    int target_idx = (g_bank.history_count - iterations)%MAX_HISTORY;
-    write_lock(&g_bank.list_lock);
-    g_bank.history[g_bank.history_count%MAX_HISTORY] = g_bank.current_state;
-    g_bank.history_count++;
 
-    // Free current
-    curr = g_bank.current_state.account_list;
-    while (curr){
-        write_unlock(&curr->account_lock);
-        curr=curr->next;
+    // 1. Validation
+    if (iterations > g_bank.history_count || iterations <= 0) {
+        write_unlock(&g_bank.history_list_lock);
+        return -1;
     }
+
+    write_lock(&g_bank.list_lock);
+
+    // 2. Math: Find the target index
+    // If count is 5 (0..4), and we rollback 1, we want index 4.
+    int target_idx = g_bank.history_count - iterations;
+
+    // 3. Clear the Live state (it is being abandoned)
     free_account_list(g_bank.current_state.account_list);
-    
-    // Restore state (Deep copy from history, so history remains valid)
+
+    // 4. Restore target state to Live (Deep Copy)
     g_bank.current_state.account_list = copy_account_list(g_bank.history[target_idx].account_list);
+
     pthread_mutex_lock(&g_bank.profits_lock);
     g_bank.current_state.bank_ils_profit = g_bank.history[target_idx].bank_ils_profit;
     g_bank.current_state.bank_usd_profit = g_bank.history[target_idx].bank_usd_profit;
     pthread_mutex_unlock(&g_bank.profits_lock);
-    for (int i = target_idx + 1; i < g_bank.history_count; i++) {
+
+    // 5. [CRITICAL] Wipe the "Future"
+    // We must free the history slots we just jumped over (including the one we just restored from,
+    // because it is now Live and we don't want a duplicate pointer confusion later).
+    for (int i = target_idx; i < g_bank.history_count; i++) {
         free_account_list(g_bank.history[i].account_list);
     }
+
+    // 6. Reset Time
+    g_bank.history_count = target_idx;
+
     write_unlock(&g_bank.list_lock);
     write_unlock(&g_bank.history_list_lock);
+    log_msg(logBuffer);
     return 0;
+
 }
 void bank_commission() {
     // Logic: take 1-5% from all accounts
