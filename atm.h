@@ -35,6 +35,7 @@ extern int glob_num_atm;
 extern int* req_arr;
 extern ATMThreadArgs** global_args_arr;
 extern ReadWriteLock req_arr_lock;
+extern int num_VIP_threads;
 
 // Add the thread routine prototype
 void* atm_thread_routine(void* args);

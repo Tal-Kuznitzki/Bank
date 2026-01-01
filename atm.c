@@ -106,7 +106,7 @@ void process_line(int atm_id, char* line, int is_active) {
     // or we manually parse. Given the strict formats, let's assume we parse the command char first.
     char *ptr = strstr(line, "VIP");
 
-    if (ptr != NULL) {
+    if (ptr != NULL && num_VIP_threads>0 ) {
         printf("Found: %s\n", ptr);
         
         int vip_value;

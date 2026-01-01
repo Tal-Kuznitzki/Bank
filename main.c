@@ -12,6 +12,7 @@ int glob_num_atm = 0;
 int* req_arr = NULL;
 ATMThreadArgs** global_args_arr;
 ReadWriteLock req_arr_lock;
+int num_VIP_threads;
 
 void* status_printer_thread(void* arg) {
     struct timespec ts;
@@ -95,7 +96,7 @@ int main(int argc, char* argv[]) {
 
     pthread_t* atm_threads = malloc(sizeof(pthread_t) * num_atms);
     pthread_t* vip_threads = NULL;
-    int num_VIP_threads=atoi(argv[1]);
+    num_VIP_threads=atoi(argv[1]);
       if (num_VIP_threads>0){
         vip_threads = malloc(sizeof(pthread_t) * num_VIP_threads);
         vip_args = malloc(sizeof(VIP_args));
