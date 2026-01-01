@@ -10,6 +10,7 @@
 #define MAX_HISTORY 100
 #define COMMISSION_INTERVAL 30 //in ms
 #define STATUS_PRINT_INTERVAL 10 //in ms
+#define SNAPSHOT_INTERVAL_TIME 10 //in ms
 
 extern volatile int system_running;
 

@@ -91,7 +91,8 @@ void trim_newline(char* str) {
 }
 
 void process_line(int atm_id, char* line, int is_active) {
-    if (is_active){
+    read_lock(&(global_args_arr[atm_id-1]->active_lock));
+    if (global_args_arr[atm_id-1]->is_active){
 
     char logBuffer[512];
     char cmdType;
@@ -439,15 +440,17 @@ void process_line(int atm_id, char* line, int is_active) {
                     sprintf(err, "Error %d: Your close operation failed - ATM ID %d is already in a closed state", atm_id, target_atm);
                     log_msg(err);
                 } 
-
+                write_lock(&req_arr_lock);
                 req_arr[target_atm-1] = atm_id;
                 printf("in c, target_atm = %d, req_arr[target_atm-1]= %d\n", target_atm, req_arr[target_atm-1]);
+                write_unlock(&req_arr_lock);
             }
         }
         default:
             break;
     }
 }
+read_unlock(&(global_args_arr[atm_id-1]->active_lock));
 }
 
 void process_atm_file(int atm_id, const char* filepath, int is_active) {

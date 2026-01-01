@@ -4,12 +4,14 @@
 #include <stdlib.h>
 #include <pthread.h>
 #include <time.h>
+#include "rwlock.h"
 
 //queue_node* queue_head = NULL;
 VIP_args* vip_args = NULL;
 int glob_num_atm = 0;
 int* req_arr = NULL;
 ATMThreadArgs** global_args_arr;
+ReadWriteLock req_arr_lock;
 
 void* status_printer_thread(void* arg) {
     struct timespec ts;
@@ -21,13 +23,20 @@ void* status_printer_thread(void* arg) {
         for (int i = 0 ; i<glob_num_atm ; i++){
             printf("inside for\n");
             if (req_arr[i] != 0){
+                write_lock(&(global_args_arr[i]->active_lock));
+                write_lock(&req_arr_lock);
+                //read_lock(&req_arr_lock);
                 global_args_arr[i]->is_active = 0;
                 int target_id = i - 1;
                 int source_id = req_arr[i];
                 char msg[256];
                 sprintf(msg, "Bank: ATM %d closed %d successfully", source_id, target_id);
                 log_msg(msg);
+                
+                //read_unlock(&req_arr_lock);
                 req_arr[i]=0;
+                write_unlock(&req_arr_lock);
+                write_unlock(&(global_args_arr[i]->active_lock));
             }
         }
         // Sleep for 10ms
@@ -42,7 +51,7 @@ void* commission_thread(void* arg) {
     ts.tv_nsec = ( (COMMISSION_INTERVAL % 1000)*1000*1000) ;
 
     while (system_running) {
-        bank_commission();
+        //bank_commission();
         nanosleep(&ts,NULL);
     }
     return NULL;
@@ -81,6 +90,8 @@ int main(int argc, char* argv[]) {
     }
 
     init_bank();
+
+    rwlock_init(&req_arr_lock);
 
     pthread_t* atm_threads = malloc(sizeof(pthread_t) * num_atms);
     pthread_t* vip_threads = NULL;
@@ -130,7 +141,8 @@ int main(int argc, char* argv[]) {
         args->atm_id = i + 1; // ATMs are 1-based usually
         args->filepath = argv[i + 2]; // Skip ./bank and VIP_count
         args->is_active = 1;
-        global_args_arr[i]=args;
+        rwlock_init(&args->active_lock);
+        global_args_arr[i]=args;  
 
         if (pthread_create(&atm_threads[i], NULL, atm_thread_routine, args) != 0) {
             perror("Bank error: pthread_create failed");
@@ -176,6 +188,7 @@ int main(int argc, char* argv[]) {
 
     for (int i = 0; i < num_atms; i++) {
         if (global_args_arr[i] != NULL) {
+            rwlock_destroy(&(global_args_arr[i]->active_lock));
             free(global_args_arr[i]); 
         }
     }
@@ -185,6 +198,7 @@ int main(int argc, char* argv[]) {
     pthread_join(printer_tid, NULL);
     pthread_join(commission_tid, NULL);
     pthread_join(snapshot_tid, NULL);
+    rwlock_destroy(&req_arr_lock);
     free(atm_threads);
     close_bank();
     return 0;

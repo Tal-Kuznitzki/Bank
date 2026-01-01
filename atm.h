@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <pthread.h>
+#include "rwlock.h"
 
 typedef struct queue_node {
     int atm_id;
@@ -18,6 +19,7 @@ typedef struct {
     int atm_id;
     char* filepath;
     int is_active;
+    ReadWriteLock active_lock;
 } ATMThreadArgs;
 
 typedef struct {
@@ -32,6 +34,7 @@ extern VIP_args* vip_args;
 extern int glob_num_atm;
 extern int* req_arr;
 extern ATMThreadArgs** global_args_arr;
+extern ReadWriteLock req_arr_lock;
 
 // Add the thread routine prototype
 void* atm_thread_routine(void* args);
