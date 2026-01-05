@@ -1,10 +1,14 @@
 #include "account.h"
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 Account* create_account(int id, int password, int init_ils, int init_usd) {
     Account* new_acc = (Account*)malloc(sizeof(Account));
-    if (!new_acc) return NULL;
+    if (!new_acc){
+        perror("Bank error: malloc failed");
+        return NULL;
+    }
     new_acc->id = id;
     new_acc->password = password;
     new_acc->balance_ils = init_ils;
@@ -26,6 +30,10 @@ Account* copy_account_list(Account* head) {
     Account* curr = head;
     while (curr) {
         Account* node = (Account*)malloc(sizeof(Account));
+        if (node==NULL) {
+            perror("Bank error: malloc failed");
+            return NULL ;
+        }
         // Copy data
         *node = *curr; 
         node->next = NULL;

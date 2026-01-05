@@ -36,7 +36,6 @@ void print_bank_status() {
         curr = curr->next;
     }
     read_unlock(&g_bank.list_lock);
-
 }
 
 // This function corresponds to the "Commission Thread" logic
@@ -132,16 +131,20 @@ void delete_account(int id) {
     // Here we can just mark is_active = false or remove it.
     // Let's remove for cleaner list, but careful with deep copy logic.
     Account* curr = g_bank.current_state.account_list;
-    Account* prev = NULL;
+   // Account* prev = NULL;
     while (curr) {
         if (curr->id == id) {
-            if (prev) prev->next = curr->next;
-            else g_bank.current_state.account_list = curr->next;
-            rwlock_destroy(&curr->account_lock);
-            free(curr);
+
+//@@@@
+//            if (prev) prev->next = curr->next;
+//            else g_bank.current_state.account_list = curr->next;
+//
+//            rwlock_destroy(&curr->account_lock);
+//            free(curr);
+            curr->is_active=false;
             return;
         }
-        prev = curr;
+        //prev = curr;
         curr = curr->next;
     }
 }
@@ -182,8 +185,7 @@ void take_snapshot() {
 
 int rollback_bank(int iterations) {
 //
-    char logBuffer[512]; //DEBUG
-    sprintf(logBuffer,"OPENED LOCKS !!!!!!!!!!!!!!!");
+    //char logBuffer[512]; //DEBUG
     write_lock(&g_bank.history_list_lock);
 
     // 1. Validation
@@ -221,7 +223,7 @@ int rollback_bank(int iterations) {
 
     write_unlock(&g_bank.list_lock);
     write_unlock(&g_bank.history_list_lock);
-    log_msg(logBuffer);
+    //log_msg(logBuffer);
     return 0;
 
 }

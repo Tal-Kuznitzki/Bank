@@ -1,3 +1,4 @@
+#define _XOPEN_SOURCE 500
 #include "atm.h"
 #include "bank.h"
 #include <stdio.h>
@@ -107,14 +108,19 @@ void process_line(int atm_id, char* line, int is_active) {
     char *ptr = strstr(line, "VIP");
 
     if (ptr != NULL && num_VIP_threads>0 ) {
-        printf("Found: %s\n", ptr);
+       // printf("Found: %s\n", ptr);
         
         int vip_value;
         if (sscanf(ptr, "VIP=%d", &vip_value) == 1) {
-            printf("The VIP value is: %d\n", vip_value);
+          //  printf("The VIP value is: %d\n", vip_value);
         }
         *ptr=0;
         queue_node* new_VIP_node = (queue_node*)malloc(sizeof(queue_node));
+        if (new_VIP_node == NULL) {
+            perror("Bank error: malloc failed");
+            exit(1);
+        }
+
         new_VIP_node->atm_id = atm_id;
         new_VIP_node->is_active = is_active;
         new_VIP_node->priority = vip_value;
@@ -123,6 +129,7 @@ void process_line(int atm_id, char* line, int is_active) {
         pthread_mutex_lock(&vip_args->queue_lock);
         add_to_queue(new_VIP_node);
         pthread_mutex_unlock(&vip_args->queue_lock);
+        read_unlock(&(global_args_arr[atm_id-1]->active_lock));
         return;
 
     } 
@@ -422,7 +429,7 @@ void process_line(int atm_id, char* line, int is_active) {
             if (sscanf(line + 1, "%d", &sleep_time) == 1) {
                 sprintf(logBuffer, "%d: Currently on a scheduled break. Service will resume within %d ms.", atm_id, sleep_time);
                 log_msg(logBuffer);
-                sleep(sleep_time/1000);
+                usleep(sleep_time*1000);
             }
             break;
         }
@@ -442,7 +449,7 @@ void process_line(int atm_id, char* line, int is_active) {
                 } 
                 write_lock(&req_arr_lock);
                 req_arr[target_atm-1] = atm_id;
-                printf("in c, target_atm = %d, req_arr[target_atm-1]= %d\n", target_atm, req_arr[target_atm-1]);
+              //  printf("in c, target_atm = %d, req_arr[target_atm-1]= %d\n", target_atm, req_arr[target_atm-1]);
                 write_unlock(&req_arr_lock);
             }
         }
@@ -463,14 +470,18 @@ void process_atm_file(int atm_id, const char* filepath, int is_active) {
     char line[CMD_LEN];
     while (fgets(line, CMD_LEN, f)) {
         trim_newline(line);
-        if (strlen(line) == 0) continue;
-        
+        if (strlen(line) == 0) {
+
+            continue;
+
+        }
         // Take snapshot before every operation to simulate state history
         // In the threaded version, this happens every 500ms. Here, we do it per op to test R logic.
-        take_snapshot();
+        //take_snapshot();
 
         process_line(atm_id, line, is_active);
 
     }
+    //global_args_arr[atm_id-1]->is_active  = 0;
     fclose(f);
 }
