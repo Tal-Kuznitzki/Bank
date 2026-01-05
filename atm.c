@@ -93,13 +93,20 @@ void trim_newline(char* str) {
 void * update_after_delay(void* args){
     INV_ARGS* inv_args = (INV_ARGS*)args;
     usleep(inv_args->time * 1000);
+
     read_lock(&g_bank.list_lock);
     Account* acc = find_account(inv_args->acc_id);
+    if (acc == NULL) {
+        read_unlock(&g_bank.list_lock);
+        free(inv_args); // Clean up memory
+        return NULL;    // Exit safely
+    }
     write_lock(&acc->account_lock);
     read_unlock(&g_bank.list_lock);
     bool isILS = (strcmp(inv_args->coin, "ILS") == 0);
     if(isILS) acc->balance_ils += acc->invested_amount ; else acc->balance_usd += acc->invested_amount;
     write_unlock(&acc->account_lock);
+    free(inv_args);
     return NULL;
 }
 
