@@ -90,6 +90,18 @@ void trim_newline(char* str) {
     p = strchr(str, '\r');
     if (p) *p = 0;
 }
+void * update_after_delay(void* args){
+    INV_ARGS* inv_args = (INV_ARGS*)args;
+    usleep(inv_args->time * 1000);
+    read_lock(&g_bank.list_lock);
+    Account* acc = find_account(inv_args->acc_id);
+    write_lock(&acc->account_lock);
+    read_unlock(&g_bank.list_lock);
+    bool isILS = (strcmp(inv_args->coin, "ILS") == 0);
+    if(isILS) acc->balance_ils += acc->invested_amount ; else acc->balance_usd += acc->invested_amount;
+    write_unlock(&acc->account_lock);
+    return NULL;
+}
 
 void process_line(int atm_id, char* line, int is_active) {
     read_lock(&(global_args_arr[atm_id-1]->active_lock));
@@ -372,44 +384,52 @@ void process_line(int atm_id, char* line, int is_active) {
              break;
         }
         case 'I': { // Investment: > <acc> <pass> <amount> <curr> <time_ms>
-             if (sscanf(line + 2, "%d %d %d %s %d", &acc_id, &password, &amount, currency, &time_ms) == 5) {
-                 // Implementation logic:
-                 // 1. Find account, check password, check funds.
-                 // 2. Deduct funds. 
-                 // 3. Since we don't have threads, we cannot "wait" and "return" the money automatically later.
-                 //    We will just deduct it and print a message saying it's invested.
-                 //    (In a real threaded sim, a thread would sleep and write back).
-                 read_lock(&g_bank.list_lock);
-                 Account* acc = find_account(acc_id);
-                 if(acc && acc->password == password) {
-                     write_lock(&acc->account_lock);
-                     read_unlock(&g_bank.list_lock);
-                      bool isILS = (strcmp(currency, "ILS") == 0);
-                      if ((isILS && acc->balance_ils >= amount) || (!isILS && acc->balance_usd >= amount)) {
-                           if(isILS) acc->balance_ils -= amount; else acc->balance_usd -= amount;
-                           // Note: No specific log format was given for success in the summary, 
-                           // but strict logs are required. I will assume a basic debug log or none if not specified.
-                           // The prompt says "do not skip logic".
-                           // Let's assume the money disappears for now.
-                      double calc = 1;
-                      double final_amount = 0;
-                      for (int i =0 ; i<(time_ms/10) ; i++) {
-                          
-                          calc = 1.03*calc;
-                      }
-                      final_amount = calc*amount;
-                      acc->i_start_time = time(NULL);
-                      if(isILS) acc->balance_ils += final_amount ; else acc->balance_usd += final_amount;
-                      acc->invested_amount = final_amount; 
-                 }
-                     write_unlock(&acc->account_lock);
-                 }
-                 else{
-                     read_unlock(&g_bank.list_lock);
-                 }
-                 // Not logging anything because no specific log string was provided in the translation for Investment Success.
-             }
-             break;
+            if (sscanf(line + 2, "%d %d %d %s %d", &acc_id, &password, &amount, currency, &time_ms) == 5) {
+                read_lock(&g_bank.list_lock);
+                Account* acc = find_account(acc_id);
+                if(acc && acc->password == password) {
+                    write_lock(&acc->account_lock);
+                    read_unlock(&g_bank.list_lock);
+                    bool isILS = (strcmp(currency, "ILS") == 0);
+                    if ((isILS && acc->balance_ils >= amount) || (!isILS && acc->balance_usd >= amount)) {
+                        if(isILS) acc->balance_ils -= amount; else acc->balance_usd -= amount;
+                        double calc = 1;
+                        double final_amount = 0;
+                        for (int i =0 ; i<(time_ms/10) ; i++) {
+                            calc = 1.03*calc;
+                        }
+                        final_amount = calc*amount;
+                        acc->i_start_time = time_ms;
+                        acc-> invested_amount = final_amount;
+
+                        pthread_t thread_inv;
+                        INV_ARGS* args = malloc(sizeof(INV_ARGS));
+                        if (args == NULL){
+                            perror("Bank error: malloc failed");
+                            return ;
+                        }
+                        args->acc_id = acc->id;
+                        args-> time = time_ms;
+                        strcpy(args-> coin, currency);
+                        args-> amount = final_amount;
+
+                        if (pthread_create(&thread_inv, NULL, update_after_delay, args) == 0) {
+                            pthread_detach(thread_inv);
+                        }
+                        else {
+                            free (args);
+                        }
+
+
+                    }
+                    write_unlock(&acc->account_lock);
+                }
+                else{
+                    read_unlock(&g_bank.list_lock);
+                }
+
+            }
+            break;
         }
         case 'R': { // Rollback: R <iterations>
             int iterations;

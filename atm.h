@@ -30,6 +30,14 @@ typedef struct {
 
 } VIP_args;
 
+typedef struct
+{
+    int acc_id;
+    int amount;
+    char coin[4];
+    int time;
+}INV_ARGS;
+
 extern VIP_args* vip_args;
 extern int glob_num_atm;
 extern int* req_arr;
@@ -45,5 +53,6 @@ void process_line(int atm_id, char* line, int is_active);
 void add_to_queue(queue_node* new_node);
 void* vip_thread_routine(void* args);
 void* destroy_vip_threads(void* args);
+void* update_after_delay(void* args);
 
 #endif
